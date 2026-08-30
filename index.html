@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Falcon Parade State & Report Sick Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --card-border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --text-heading: #f0f6fc;
+      --accent: #58a6ff;
+      --khaki: #d2a850;
+      
+      --present: #2ea043;
+      --rso: #f0883e;
+      --ufd: #da3633;
+      --ld: #d29922;
+      --excuse: #a371f7;
+      --oot: #f778ba;
+      --others: #8b949e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 24px 16px;
+      line-height: 1.5;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--card-border);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    h1 { font-size: 1.5rem; color: var(--text-heading); font-weight: 700; letter-spacing: -0.02em; }
+    .clock-line { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; color: var(--khaki); }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--card-border);
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+    .tab {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 6px;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+    .tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .tab.active { color: var(--text-heading); background: var(--card-bg); border: 1px solid var(--card-border); }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 1.1rem;
+      color: var(--text-heading);
+      margin-bottom: 16px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .strength-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .strength-chip {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+    }
+    .strength-chip .n { font-size: 1.5rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
+    .strength-chip .l { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-top: 4px; }
+
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media(max-width:768px){ .grid-2 { grid-template-columns: 1fr; } }
+
+    input, select, textarea, button {
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+    input[type="text"], input[type="date"], select, textarea {
+      background: #0d1117;
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      outline: none;
+      width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+    button {
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+    button:hover { opacity: 0.9; }
+    button.ghost { background: transparent; border: 1px solid var(--card-border); color: var(--text); }
+    button.ghost:hover { background: rgba(255,255,255,0.05); }
+    button.danger { background: var(--ufd); }
+    button.small { padding: 4px 8px; font-size: 0.8rem; }
+
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+    th { color: var(--text-muted); font-weight: 600; padding: 10px; border-bottom: 1px solid var(--card-border); }
+    td { padding: 10px; border-bottom: 1px solid var(--card-border); }
+    tr.section-head td { background: rgba(255,255,255,0.03); font-weight: 600; color: var(--khaki); font-family: 'IBM Plex Mono', monospace; }
+
+    .fourd-tag {
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--khaki);
+      background: rgba(210, 168, 80, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 8px;
+      font-size: 0.85rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .b-present { background: rgba(46,160,67,0.2); color: var(--present); }
+    .b-rso { background: rgba(240,136,62,0.2); color: var(--rso); }
+    .b-ufd { background: rgba(218,54,51,0.2); color: var(--ufd); }
+    .b-ld { background: rgba(210,153,34,0.2); color: var(--ld); }
+    .b-excuse { background: rgba(163,113,247,0.2); color: var(--excuse); }
+    .b-others { background: rgba(139,148,158,0.2); color: var(--others); }
+
+    .combo { position: relative; width: 100%; }
+    .combo-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 10;
+      display: none;
+    }
+    .combo-item { padding: 8px 12px; cursor: pointer; }
+    .combo-item:hover { background: rgba(255,255,255,0.05); }
+    .combo-group-label { padding: 4px 12px; font-size: 0.75rem; color: var(--khaki); font-weight: 600; background: #0d1117; }
+    .combo-empty { padding: 8px 12px; color: var(--text-muted); font-size: 0.85rem; }
+
+    .pending-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: #0d1117;
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .pending-item .who { font-weight: 600; color: var(--text-heading); }
+    .pending-item .meta { font-size: 0.8rem; color: var(--text-muted); }
+
+    .roster-section { margin-bottom: 16px; }
+    .roster-section h3 { font-size: 0.9rem; color: var(--khaki); margin-bottom: 8px; font-family: 'IBM Plex Mono', monospace; }
+    .roster-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .roster-tag {
+      background: #0d1117;
+      border: 1px solid var(--card-border);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+    }
+    .cal-dow { font-size: 0.8rem; color: var(--text-muted); padding: 4px; font-weight: 600; }
+    .cal-cell {
+      background: #0d1117;
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      min-height: 48px;
+      padding: 4px;
+      cursor: pointer;
+      position: relative;
+    }
+    .cal-cell:hover { border-color: var(--accent); }
+    .cal-cell.empty-cell { background: transparent; border-color: transparent; cursor: default; }
+    .cal-cell.selected { border-color: var(--accent); background: rgba(88,166,255,0.1); }
+    .cal-cell.is-today { border-color: var(--khaki); }
+    .cal-daynum { font-size: 0.8rem; font-family: 'IBM Plex Mono', monospace; }
+    .cal-count {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      background: var(--ufd);
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 1px 5px;
+      border-radius: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-heading);
+      padding: 12px 20px;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      display: none;
+      z-index: 100;
+      font-size: 0.9rem;
+    }
+    #toast.show { display: block; }
+    .empty { color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 8px 0; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div>
+      <h1>Falcon Parade State</h1>
+      <div class="clock-line" id="clockLine">--:-- -- SGT</div>
+    </div>
+  </header>
+
+  <div class="strength-row" id="strengthRow"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="parade">Parade State</button>
+    <button class="tab" data-view="sick">Report Sick</button>
+    <button class="tab" data-view="oot">OOT Tracker</button>
+    <button class="tab" data-view="calendar">Calendar</button>
+    <button class="tab" data-view="history">Recruit History</button>
+    <button class="tab" data-view="roster">Roster</button>
+  </div>
+
+  <!-- VIEW: PARADE STATE -->
+  <div class="view active" id="view-parade">
+    <div class="card">
+      <div class="card-title">
+        <div>
+          Daily Attendance
+          <span style="font-size: 0.8rem; color: var(--text-muted);" id="paradeSubcount"></span>
+        </div>
+        <div class="row">
+          <input type="date" id="paradeDate" style="width: auto;">
+          <button id="btnCopySitrep">Copy Sitrep</button>
+        </div>
+      </div>
+      <div id="paradeTableWrap"></div>
+    </div>
+  </div>
+
+  <!-- VIEW: REPORT SICK -->
+  <div class="view" id="view-sick">
+    <div id="pendingPanel" class="card" style="display:none; border-color: var(--rso);">
+      <div class="card-title" style="color: var(--rso);">
+        <div>Pending Outcome Logging</div>
+        <input type="date" id="pendingDate" style="width: auto;">
+      </div>
+      <div id="pendingList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" id="sickFormTitle">
+        Log an Outcome
+        <button class="ghost small" id="btnCancelEdit" style="display:none;">Cancel Edit</button>
+      </div>
+      <div class="grid-2" style="margin-bottom: 12px;">
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Recruit</label>
+          <div class="combo">
+            <input type="text" id="sickRecruitInput" placeholder="Search 4D or Name...">
+            <input type="hidden" id="sickRecruitId">
+            <div class="combo-list" id="sickRecruitList"></div>
+          </div>
+        </div>
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Outcome</label>
+          <select id="sickOutcome">
+            <option value="UFD">UFD</option>
+            <option value="LD">Light Duty</option>
+            <option value="EXCUSE">Excuse</option>
+            <option value="PRESENT">Fit / RTU</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 12px;">
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Start Date</label>
+          <input type="date" id="sickStartDate">
+        </div>
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">End Date</label>
+          <input type="date" id="sickEndDate">
+        </div>
+      </div>
+
+      <div id="excuseTypeWrap" style="display:none; margin-bottom: 12px;">
+        <label style="font-size: 0.8rem; color: var(--text-muted);">Excuse Type</label>
+        <select id="sickExcuseType">
+          <option value="UL">Upper Limb (UL)</option>
+          <option value="LL">Lower Limb (LL)</option>
+          <option value="UNIFORM">Uniform</option>
+          <option value="FLEGS">FLEGS</option>
+          <option value="OTHERS">Others</option>
+        </select>
+      </div>
+      <div id="excuseOtherWrap" style="display:none; margin-bottom: 12px;">
+        <input type="text" id="sickExcuseOther" placeholder="Specify excuse details...">
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 12px;">
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Location</label>
+          <select id="sickLocation">
+            <option value="PTMC">PTMC</option>
+            <option value="HOSPITAL">Hospital / A&E</option>
+            <option value="POLYCLINIC">Polyclinic</option>
+            <option value="OTHERS">Others</option>
+          </select>
+        </div>
+        <div id="locationOtherWrap" style="display:none;">
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Location Details</label>
+          <input type="text" id="sickLocationOther" placeholder="Specify location...">
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 0.8rem; color: var(--text-muted);">Reason / Diagnosis</label>
+        <input type="text" id="sickReason" placeholder="e.g. Fever, sprained ankle">
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label style="font-size: 0.8rem; color: var(--text-muted);">Remarks</label>
+        <input type="text" id="sickRemarks" placeholder="Optional notes...">
+      </div>
+
+      <button id="btnLogSick" style="width: 100%;">Log Outcome</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <div>
+          Report Sick Log
+          <span style="font-size: 0.8rem; color: var(--text-muted);" id="sickLogCount"></span>
+        </div>
+        <div class="row">
+          <input type="text" id="sickSearch" placeholder="Filter log..." style="width: 160px;">
+          <button class="ghost" id="btnExportExcel">Export Excel</button>
+        </div>
+      </div>
+      <div id="sickLogWrap" style="overflow-x: auto;"></div>
+    </div>
+  </div>
+
+  <!-- VIEW: OOT TRACKER -->
+  <div class="view" id="view-oot">
+    <div class="card">
+      <div class="card-title">Flag Recruit as OOT</div>
+      <div class="grid-2" style="margin-bottom: 12px;">
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Recruit</label>
+          <div class="combo">
+            <input type="text" id="ootRecruitInput" placeholder="Search 4D or Name...">
+            <input type="hidden" id="ootRecruitId">
+            <div class="combo-list" id="ootRecruitList"></div>
+          </div>
+        </div>
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Start Date</label>
+          <input type="date" id="ootStartDate">
+        </div>
+      </div>
+      <div class="grid-2" style="margin-bottom: 16px;">
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Expected End Date (Optional)</label>
+          <input type="date" id="ootEndDate">
+        </div>
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Notes</label>
+          <input type="text" id="ootNote" placeholder="e.g. Exceeded 30 days MC threshold">
+        </div>
+      </div>
+      <button id="btnMarkOot" style="width:100%;">Mark as OOT</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="color: var(--oot);">Candidates Exceeding Threshold (30+ Days)</div>
+      <div id="pendingOotList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        Currently Active OOT
+        <span style="font-size: 0.8rem; color: var(--text-muted);" id="ootCurrentCount"></span>
+      </div>
+      <div id="ootCurrentList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">OOT History</div>
+      <div id="ootHistoryList"></div>
+    </div>
+  </div>
+
+  <!-- VIEW: CALENDAR -->
+  <div class="view" id="view-calendar">
+    <div class="card">
+      <div class="card-title">
+        <button class="ghost small" id="btnPrevMonth">&lt;</button>
+        <span id="calMonthLabel"></span>
+        <button class="ghost small" id="btnNextMonth">&gt;</button>
+      </div>
+      <div class="cal-grid" id="calendarGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        Entries for Date
+        <span style="font-size: 0.8rem; color: var(--text-muted);" id="calendarDayLabel"></span>
+      </div>
+      <div id="calendarDayList"></div>
+    </div>
+  </div>
+
+  <!-- VIEW: RECRUIT HISTORY -->
+  <div class="view" id="view-history">
+    <div class="card">
+      <div class="card-title">Individual Recruit Lookup</div>
+      <input type="text" id="historySearch" placeholder="Search recruit name or 4D..." style="margin-bottom: 12px;">
+      <div id="historyResults"></div>
+    </div>
+
+    <div class="card" id="historyDetail" style="display:none;">
+      <div class="card-title" id="historyName"></div>
+      <div class="strength-row" id="historyCounts" style="margin-bottom: 16px;"></div>
+      
+      <h4 style="color: var(--text-heading); margin-bottom: 8px;">Report Sick History</h4>
+      <div id="historyRSLog" style="margin-bottom: 20px;"></div>
+
+      <h4 style="color: var(--text-heading); margin-bottom: 8px;">Status Change Audit</h4>
+      <div id="historyStatusLog"></div>
+    </div>
+  </div>
+
+  <!-- VIEW: ROSTER -->
+  <div class="view" id="view-roster">
+    <div class="card">
+      <div class="card-title">Add Single Recruit</div>
+      <div class="grid-2" style="margin-bottom: 12px;">
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">4D (e.g. 1204)</label>
+          <input type="text" id="newRecruitFourD" placeholder="1204">
+          <div style="font-size: 0.75rem; color: var(--khaki); margin-top: 4px;" id="newRecruitSectionPreview">Unassigned</div>
+        </div>
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Full Name</label>
+          <input type="text" id="newRecruitName" placeholder="REC John Doe">
+        </div>
+      </div>
+      <button id="btnAddRecruit">Add to Roster</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Bulk Add Recruits</div>
+      <textarea id="bulkNames" rows="4" placeholder="Paste lines:&#10;1201 REC John Doe&#10;1202 REC Jane Smith" style="margin-bottom: 12px;"></textarea>
+      <button id="btnBulkAdd">Bulk Add</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        Current Roster
+        <span style="font-size: 0.8rem; color: var(--text-muted);" id="rosterCount"></span>
+      </div>
+      <div id="rosterWrap"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+  const STATUSES = ["PRESENT","RSO","UFD","LD","EXCUSE"];
+  const STATUS_LABEL = {PRESENT:"Present", RSO:"RSO", UFD:"UFD", LD:"Light Duty", EXCUSE:"Excuse"};
+  function parseFourD(fourD){
+    const s = (fourD||'').trim();
+    if(!/^\d{4}$/.test(s)) return null;
+    return {platoon: s[0], section: s[1], bed: s.slice(2), label: `Platoon ${s[0]} \u00b7 Section ${s[1]}`};
+  }
+  function sectionLabelFromFourD(fourD){
+    const p = parseFourD(fourD);
+    return p ? p.label : 'Unassigned';
+  }
+  function canonicalGroups(){
+    const groups = [];
+    for(let p=1;p<=4;p++){ for(let s=1;s<=4;s++){ groups.push(`Platoon ${p} \u00b7 Section ${s}`); } }
+    groups.push('Unassigned');
+    return groups;
+  }
+  function allGroupsPresent(){
+    const base = canonicalGroups();
+    const extra = Array.from(new Set(roster.map(r=>r.section).filter(sec=>sec && !base.includes(sec)))).sort();
+    return base.concat(extra);
+  }
+  function sortMembers(members){
+    return [...members].sort((a,b)=>{
+      const na = parseInt((a.fourD||'').trim(),10), nb = parseInt((b.fourD||'').trim(),10);
+      const va = isNaN(na)?Infinity:na, vb = isNaN(nb)?Infinity:nb;
+      if(va!==vb) return va-vb;
+      return a.name.localeCompare(b.name);
+    });
+  }
+  function isFourDTok(tok){ return /^\d{3,4}$/.test(tok); }
+  const LOCATION_LABEL = {PTMC:"PTMC", HOSPITAL:"Hospital / A&E", POLYCLINIC:"Polyclinic", OTHERS:"Others"};
+  const OUTCOME_LABEL = {UFD:"UFD", LD:"Light Duty", EXCUSE:"Excuse", PRESENT:"Fit / RTU"};
+  const EXCUSE_TYPE_LABEL = {UL:"Upper Limb (UL)", LL:"Lower Limb (LL)", UNIFORM:"Uniform", FLEGS:"FLEGS", OTHERS:"Others"};
+  const OOT_THRESHOLD_DAYS = 30;
+
+  let roster = [];
+  let paradeToday = {};
+  let sickLog = [];
+  let statusHistory = [];
+  let ootLog = [];
+  let currentParadeDate = todayStr();
+  let currentSickDate = todayStr();
+  let editingSickId = null;
+  let selectedCalDate = null;
+  const now0 = new Date();
+  let calYear = now0.getFullYear();
+  let calMonth = now0.getMonth();
+
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function uid(){ return 'r_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+  function dateRange(start, end){
+    if(!end || end < start) end = start;
+    const dates = [];
+    let d = new Date(start+'T00:00:00');
+    const endD = new Date(end+'T00:00:00');
+    let guard = 0;
+    while(d <= endD && guard < 400){
+      dates.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+      d.setDate(d.getDate()+1);
+      guard++;
+    }
+    return dates;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function toast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._h);
+    toast._h = setTimeout(()=>t.classList.remove('show'), 1800);
+  }
+
+  const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbw-2Ta7_ZzL1amgtI_QZp17-NgIA9MT4zKI3gGbLzN4Wz1fdK3-OJcEq31RExoy8dOQ/exec";
+  
+  async function getKey(key) {
+    try {
+      const response = await fetch(`${GOOGLE_SHEET_API_URL}?action=get&key=${encodeURIComponent(key)}`);
+      const data = await response.json();
+      return Object.keys(data).length > 0 ? JSON.stringify(data) : null;
+    } catch (e) {
+      console.error('Fetch error:', e);
+      return null;
+    }
+  }
+
+  async function setKey(key, value) {
+    try {
+      const parsedData = JSON.parse(value);
+      await fetch(GOOGLE_SHEET_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'set',
+          key: key,
+          data: parsedData
+        })
+      });
+      return true;
+    } catch (e) {
+      console.error('Save error:', e);
+      toast('Save failed — check connection');
+      return false;
+    }
+  }
+
+  async function loadRoster(){ const v = await getKey('roster'); roster = v ? JSON.parse(v) : []; }
+  async function saveRoster(){ await setKey('roster', JSON.stringify(roster)); }
+  async function loadParade(date){ const v = await getKey('parade:'+date); return v ? JSON.parse(v) : {}; }
+  async function saveParade(date, obj){ await setKey('parade:'+date, JSON.stringify(obj)); }
+  async function loadSickLog(){ const v = await getKey('sick-log'); sickLog = v ? JSON.parse(v) : []; }
+  async function saveSickLog(){ await setKey('sick-log', JSON.stringify(sickLog)); }
+  async function loadOotLog(){ const v = await getKey('oot-log'); ootLog = v ? JSON.parse(v) : []; }
+  async function saveOotLog(){ await setKey('oot-log', JSON.stringify(ootLog)); }
+  function daysBetween(a, b){
+    const dA = new Date(a+'T00:00:00'), dB = new Date(b+'T00:00:00');
+    return Math.round((dB - dA) / 86400000);
+  }
+  async function loadStatusHistory(){ const v = await getKey('status-history'); statusHistory = v ? JSON.parse(v) : []; }
+  async function logStatusChange(recruitId, date, status, remarks, source){
+    statusHistory.push({id: uid(), recruitId, date, status, remarks: remarks||'', source, timestamp: Date.now()});
+    await setKey('status-history', JSON.stringify(statusHistory));
+  }
+
+  function recruitById(id){ return roster.find(r=>r.id===id); }
+  function recruitLabel(r){ return (r.fourD ? r.fourD+' — ' : '') + r.name; }
+
+  function tickClock(){
+    const d = new Date();
+    const opts = {weekday:'short', day:'2-digit', month:'short', year:'numeric'};
+    document.getElementById('clockLine').textContent =
+      d.toLocaleDateString('en-GB', opts).toUpperCase() + '  ·  ' + d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) + ' SGT';
+  }
+
+  function renderStrength(){
+    const counts = {PRESENT:0, RSO:0, UFD:0, LD:0, EXCUSE:0};
+    roster.forEach(r=>{
+      const entry = paradeToday[r.id];
+      const st = entry && entry.status ? entry.status : 'PRESENT';
+      counts[st] = (counts[st]||0) + 1;
+    });
+
+    const today = todayStr();
+    const activeOotCount = ootLog.filter(o=> !o.endDate || o.endDate >= today).length;
+
+    const wrap = document.getElementById('strengthRow');
+    const chips = [
+      ['TOTAL', roster.length, ''],
+      ['PRESENT', counts.PRESENT, 'PRESENT'],
+      ['RSO', counts.RSO, 'RSO'],
+      ['UFD', counts.UFD, 'UFD'],
+      ['LIGHT DUTY', counts.LD, 'LD'],
+      ['EXCUSE', counts.EXCUSE, 'EXCUSE'],
+      ['OOT', activeOotCount, 'OOT']
+    ];
+    wrap.innerHTML = chips.map(([label, n, key])=>{
+      let color = 'var(--khaki)';
+      if(key === 'OOT') color = 'var(--oot)';
+      else if(key) color = `var(--${key.toLowerCase()})`;
+
+      return `<div class="strength-chip"><div class="n" style="color:${color}">${n}</div><div class="l">${label}</div></div>`;
+    }).join('');
+  }
+
+  async function renderParadeTable(){
+    document.getElementById('paradeSubcount').textContent = `(${roster.length} total, as of ${currentParadeDate})`;
+    const wrap = document.getElementById('paradeTableWrap');
+    if(roster.length === 0){ wrap.innerHTML = '<div class="empty">No recruits yet. Add them in the Roster tab.</div>'; return; }
+    let html = '<table><thead><tr><th style="width:34%">4D / Name</th><th style="width:16%">Status</th><th>Remarks</th></tr></thead><tbody>';
+    allGroupsPresent().forEach(sec=>{
+      const members = sortMembers(roster.filter(r=>r.section===sec));
+      if(members.length===0) return;
+      html += `<tr class="section-head"><td colspan="3">${sec} &middot; ${members.length}</td></tr>`;
+      members.forEach(r=>{
+        const entry = paradeToday[r.id] || {status:'PRESENT', remarks:''};
+        html += `<tr data-id="${r.id}">
+          <td class="name-cell">${r.fourD?`<span class="fourd-tag">${escapeHtml(r.fourD)}</span>`:''}${escapeHtml(r.name)}</td>
+          <td>
+            <select class="status-select" data-id="${r.id}">
+              ${STATUSES.map(s=>`<option value="${s}" ${entry.status===s?'selected':''}>${STATUS_LABEL[s]}</option>`).join('')}
+            </select>
+          </td>
+          <td><input type="text" class="remarks-input" data-id="${r.id}" value="${escapeHtml(entry.remarks||'')}" placeholder="reason / notes"></td>
+        </tr>`;
+      });
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('.status-select').forEach(sel=>{
+      sel.addEventListener('change', async (e)=>{
+        const id = e.target.dataset.id;
+        if(!paradeToday[id]) paradeToday[id] = {status:'PRESENT', remarks:''};
+        paradeToday[id].status = e.target.value;
+        await saveParade(currentParadeDate, paradeToday);
+        await logStatusChange(id, currentParadeDate, e.target.value, paradeToday[id].remarks, 'parade');
+        renderStrength();
+        if(currentParadeDate === currentSickDate) renderPending();
+        toast('Status updated');
+      });
+    });
+    wrap.querySelectorAll('.remarks-input').forEach(inp=>{
+      inp.addEventListener('change', async (e)=>{
+        const id = e.target.dataset.id;
+        if(!paradeToday[id]) paradeToday[id] = {status:'PRESENT', remarks:''};
+        paradeToday[id].remarks = e.target.value;
+        await saveParade(currentParadeDate, paradeToday);
+        toast('Remarks saved');
+      });
+    });
+  }
+
+  async function switchParadeDate(date){
+    currentParadeDate = date;
+    paradeToday = await loadParade(date);
+    renderParadeTable();
+    renderStrength();
+  }
+
+  function buildSitrepText(){
+    const groups = {}; STATUSES.forEach(s=>groups[s]=[]);
+    roster.forEach(r=>{
+      const entry = paradeToday[r.id];
+      const st = entry && entry.status ? entry.status : 'PRESENT';
+      const label = entry && entry.remarks ? `${recruitLabel(r)} (${entry.remarks})` : recruitLabel(r);
+      groups[st].push(label);
+    });
+    let lines = [`*PARADE STATE — ${currentParadeDate}*`, `Total: ${roster.length}`, ''];
+    STATUSES.forEach(s=>{
+      const list = groups[s];
+      if(s === 'PRESENT'){ lines.push(`*PRESENT: ${list.length}*`); }
+      else if(list.length){ lines.push(`*${STATUS_LABEL[s].toUpperCase()} (${list.length}):*`); list.forEach(n=>lines.push(`- ${n}`)); }
+    });
+    return lines.join('\n');
+  }
+
+  function populateSickRecruitSelect(){ renderRecruitCombo(''); }
+
+  function renderRecruitCombo(query){
+    const list = document.getElementById('sickRecruitList');
+    const q = query.trim().toLowerCase();
+    let html = '';
+    allGroupsPresent().forEach(sec=>{
+      const members = sortMembers(roster.filter(r=> r.section===sec && (!q || r.name.toLowerCase().includes(q) || (r.fourD||'').toLowerCase().includes(q))));
+      if(!members.length) return;
+      html += `<div class="combo-group-label">${sec}</div>`;
+      members.forEach(r=>{
+        html += `<div class="combo-item" data-id="${r.id}">${r.fourD?`<span class="fourd-tag">${escapeHtml(r.fourD)}</span>`:''}${escapeHtml(r.name)}</div>`;
+      });
+    });
+    if(!html) html = `<div class="combo-empty">No matching recruit</div>`;
+    list.innerHTML = html;
+    list.querySelectorAll('.combo-item').forEach(item=>{
+      item.addEventListener('click', ()=>{
+        const r = recruitById(item.dataset.id);
+        document.getElementById('sickRecruitInput').value = recruitLabel(r);
+        document.getElementById('sickRecruitId').value = r.id;
+        list.style.display = 'none';
+      });
+    });
+  }
+
+  function renderOotRecruitCombo(query){
+    const list = document.getElementById('ootRecruitList');
+    const q = query.trim().toLowerCase();
+    let html = '';
+    allGroupsPresent().forEach(sec=>{
+      const members = sortMembers(roster.filter(r=> r.section===sec && (!q || r.name.toLowerCase().includes(q) || (r.fourD||'').toLowerCase().includes(q))));
+      if(!members.length) return;
+      html += `<div class="combo-group-label">${sec}</div>`;
+      members.forEach(r=>{
+        html += `<div class="combo-item" data-id="${r.id}">${r.fourD?`<span class="fourd-tag">${escapeHtml(r.fourD)}</span>`:''}${escapeHtml(r.name)}</div>`;
+      });
+    });
+    if(!html) html = `<div class="combo-empty">No matching recruit</div>`;
+    list.innerHTML = html;
+    list.querySelectorAll('.combo-item').forEach(item=>{
+      item.addEventListener('click', ()=>{
+        const r = recruitById(item.dataset.id);
+        document.getElementById('ootRecruitInput').value = recruitLabel(r);
+        document.getElementById('ootRecruitId').value = r.id;
+        list.style.display = 'none';
+      });
+    });
+  }
+
+  function toggleLocationOther(){
+    document.getElementById('locationOtherWrap').style.display =
+      document.getElementById('sickLocation').value === 'OTHERS' ? 'block' : 'none';
+  }
+  function toggleExcuseType(){
+    const isExcuse = document.getElementById('sickOutcome').value === 'EXCUSE';
+    document.getElementById('excuseTypeWrap').style.display = isExcuse ? 'block' : 'none';
+    toggleExcuseOther();
+  }
+  function toggleExcuseOther(){
+    const isExcuse = document.getElementById('sickOutcome').value === 'EXCUSE';
+    const isOthers = document.getElementById('sickExcuseType').value === 'OTHERS';
+    document.getElementById('excuseOtherWrap').style.display = (isExcuse && isOthers) ? 'block' : 'none';
+  }
+
+  async function renderPending(){
+    const panel = document.getElementById('pendingPanel');
+    const list = document.getElementById('pendingList');
+    const paradeForSickDate = currentParadeDate === currentSickDate ? paradeToday : await loadParade(currentSickDate);
+    const loggedIds = new Set(
+      sickLog.filter(e => e.startDate <= currentSickDate && (e.endDate||e.startDate) >= currentSickDate).map(e=>e.recruitId)
+    );
+    const pending = roster.filter(r=>{
+      const entry = paradeForSickDate[r.id];
+      return entry && entry.status === 'RSO' && !loggedIds.has(r.id);
+    });
+    if(pending.length === 0){ panel.style.display='none'; list.innerHTML=''; return; }
+    panel.style.display='block';
+    list.innerHTML = pending.map(r=>`
+      <div class="pending-item">
+        <div><span class="who">${escapeHtml(recruitLabel(r))}</span><span class="meta"> ${r.section}</span></div>
+        <button class="ghost quick-log" data-id="${r.id}">Log outcome</button>
+      </div>`).join('');
+    list.querySelectorAll('.quick-log').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const rec = recruitById(btn.dataset.id);
+        document.getElementById('sickRecruitInput').value = rec ? recruitLabel(rec) : '';
+        document.getElementById('sickRecruitId').value = btn.dataset.id;
+        document.getElementById('sickStartDate').value = currentSickDate;
+        document.getElementById('sickEndDate').value = currentSickDate;
+        document.getElementById('sickReason').focus();
+      });
+    });
+  }
+
+  function activeOotEntry(recruitId){
+    const today = todayStr();
+    return ootLog.find(o=> o.recruitId===recruitId && (!o.endDate || o.endDate >= today));
+  }
+
+  function renderPendingOot(){
+    const wrap = document.getElementById('pendingOotList');
+    if(!wrap) return;
+    const today = todayStr();
+    const candidates = [];
+    sickLog.forEach(e=>{
+      if(!['UFD','LD','EXCUSE'].includes(e.outcome)) return;
+      const end = e.endDate || e.startDate;
+      if(e.startDate > today || end < today) return;
+      const days = daysBetween(e.startDate, today) + 1;
+      if(days < OOT_THRESHOLD_DAYS) return;
+      if(activeOotEntry(e.recruitId)) return;
+      candidates.push({entry:e, days});
+    });
+    candidates.sort((a,b)=> b.days - a.days);
+    if(candidates.length===0){ wrap.innerHTML = '<div class="empty">No one currently past the threshold.</div>'; return; }
+    wrap.innerHTML = candidates.map(({entry,days})=>{
+      const r = recruitById(entry.recruitId);
+      const label = entry.outcome==='EXCUSE' ? excuseOutcomeLabel(entry) : (OUTCOME_LABEL[entry.outcome]||entry.outcome);
+      return `<div class="pending-item">
+        <div><span class="who">${r?escapeHtml(recruitLabel(r)):'(removed)'}</span>
+        <span class="meta"> ${label} · since ${entry.startDate} · ${days} days</span></div>
+        <button class="ghost quick-mark-oot" data-id="${entry.recruitId}">Mark OOT</button>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.quick-mark-oot').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const rec = recruitById(btn.dataset.id);
+        document.getElementById('ootRecruitInput').value = rec ? recruitLabel(rec) : '';
+        document.getElementById('ootRecruitId').value = btn.dataset.id;
+        document.getElementById('ootStartDate').value = todayStr();
+        document.getElementById('ootEndDate').value = '';
+        document.getElementById('ootNote').focus();
+      });
+    });
+  }
+
+  function renderOotCurrent(){
+    const wrap = document.getElementById('ootCurrentList');
+    const countEl = document.getElementById('ootCurrentCount');
+    if(!wrap) return;
+    const today = todayStr();
+    const active = [...ootLog].filter(o=> !o.endDate || o.endDate >= today).sort((a,b)=>a.startDate.localeCompare(b.startDate));
+    countEl.textContent = `(${active.length} active)`;
+    if(active.length===0){ wrap.innerHTML = '<div class="empty">No recruits currently marked OOT.</div>'; return; }
+    wrap.innerHTML = active.map(o=>{
+      const r = recruitById(o.recruitId);
+      const days = daysBetween(o.startDate, today) + 1;
+      return `<div class="pending-item">
+        <div><span class="who">${r?escapeHtml(recruitLabel(r)):'(removed)'}</span>
+        <span class="meta"> since ${o.startDate} · ${days} days${o.note?(' · '+escapeHtml(o.note)):''}</span></div>
+        <div class="row" style="gap:6px;">
+          <button class="ghost small close-oot" data-id="${o.id}">Close today</button>
+          <button class="ghost danger small del-oot" data-id="${o.id}">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.close-oot').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const o = ootLog.find(x=>x.id===btn.dataset.id);
+        if(o){
+          o.endDate = todayStr();
+          await saveOotLog();
+          renderOotCurrent(); renderOotHistory(); renderPendingOot(); renderStrength();
+          toast('OOT closed');
+        }
+      });
+    });
+    wrap.querySelectorAll('.del-oot').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        ootLog = ootLog.filter(x=>x.id!==btn.dataset.id);
+        await saveOotLog();
+        renderOotCurrent(); renderOotHistory(); renderPendingOot(); renderStrength();
+        toast('OOT entry removed');
+      });
+    });
+  }
+
+  function renderOotHistory(){
+    const wrap = document.getElementById('ootHistoryList');
+    if(!wrap) return;
+    const today = todayStr();
+    const closed = [...ootLog].filter(o=> o.endDate && o.endDate < today).sort((a,b)=>b.startDate.localeCompare(a.startDate));
+    if(closed.length===0){ wrap.innerHTML = '<div class="empty">No closed OOT periods yet.</div>'; return; }
+    wrap.innerHTML = closed.map(o=>{
+      const r = recruitById(o.recruitId);
+      const days = daysBetween(o.startDate, o.endDate) + 1;
+      return `<div class="pending-item">
+        <div><span class="who">${r?escapeHtml(recruitLabel(r)):'(removed)'}</span>
+        <span class="meta"> ${o.startDate} → ${o.endDate} · ${days} days${o.note?(' · '+escapeHtml(o.note)):''}</span></div>
+        <button class="ghost danger small del-oot-hist" data-id="${o.id}">✕</button>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.del-oot-hist').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        ootLog = ootLog.filter(x=>x.id!==btn.dataset.id);
+        await saveOotLog();
+        renderOotHistory();
+        toast('OOT entry removed');
+      });
+    });
+  }
+
+  function renderOotTab(){ renderPendingOot(); renderOotCurrent(); renderOotHistory(); }
+
+  async function markOot(){
+    const recruitId = document.getElementById('ootRecruitId').value;
+    if(!recruitId){ toast('Search and select a recruit first'); return; }
+    const startDate = document.getElementById('ootStartDate').value || todayStr();
+    const endDateRaw = document.getElementById('ootEndDate').value;
+    const endDate = endDateRaw && endDateRaw >= startDate ? endDateRaw : '';
+    const note = document.getElementById('ootNote').value.trim();
+    if(activeOotEntry(recruitId)){ toast('This recruit already has an active OOT entry'); return; }
+    ootLog.push({id: uid(), recruitId, startDate, endDate, note, createdAt: Date.now()});
+    await saveOotLog();
+    document.getElementById('ootRecruitInput').value='';
+    document.getElementById('ootRecruitId').value='';
+    document.getElementById('ootStartDate').value = todayStr();
+    document.getElementById('ootEndDate').value='';
+    document.getElementById('ootNote').value='';
+    renderOotTab();
+    renderStrength();
+    toast('Marked OOT');
+  }
+
+  function renderSickLog(){
+    const search = document.getElementById('sickSearch').value.trim().toLowerCase();
+    const wrap = document.getElementById('sickLogWrap');
+    let entries = [...sickLog].sort((a,b)=> b.startDate.localeCompare(a.startDate) || (b.createdAt||0)-(a.createdAt||0));
+    if(search){
+      entries = entries.filter(e=>{
+        const r = recruitById(e.recruitId);
+        return r && (r.name.toLowerCase().includes(search) || (r.fourD||'').toLowerCase().includes(search));
+      });
+    }
+    document.getElementById('sickLogCount').textContent = `(${entries.length} entries)`;
+    if(entries.length===0){ wrap.innerHTML = '<div class="empty">No report sick entries yet.</div>'; return; }
+    let html = '<table><thead><tr><th>Dates</th><th>4D</th><th>Name</th><th>Outcome</th><th>Reason</th><th>Location</th><th>Remarks</th><th></th><th></th></tr></thead><tbody>';
+    entries.forEach(e=>{
+      const r = recruitById(e.recruitId);
+      const badgeClass = badgeClassFor(e.outcome);
+      const outcomeLabel = e.outcome==='EXCUSE' ? excuseOutcomeLabel(e) : (OUTCOME_LABEL[e.outcome]||e.outcome);
+      const loc = e.location==='OTHERS' ? (e.locationOther||'Others') : (LOCATION_LABEL[e.location]||e.location||'—');
+      const dateRangeLabel = (e.endDate && e.endDate !== e.startDate) ? `${e.startDate} → ${e.endDate}` : e.startDate;
+      html += `<tr>
+        <td style="font-family:'IBM Plex Mono',monospace; white-space:nowrap;">${dateRangeLabel}</td>
+        <td style="font-family:'IBM Plex Mono',monospace; color:var(--khaki);">${r?escapeHtml(r.fourD||''):''}</td>
+        <td class="name-cell">${r?escapeHtml(r.name):'(removed recruit)'}</td>
+        <td><span class="badge ${badgeClass}">${outcomeLabel}</span></td>
+        <td>${escapeHtml(e.reason||'—')}</td>
+        <td>${escapeHtml(loc)}</td>
+        <td>${escapeHtml(e.remarks||'—')}</td>
+        <td><button class="ghost small edit-sick" data-id="${e.id}">Edit</button></td>
+        <td><button class="danger ghost small del-sick" data-id="${e.id}">✕</button></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.del-sick').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        sickLog = sickLog.filter(e=>e.id !== btn.dataset.id);
+        await saveSickLog();
+        renderSickLog();
+        toast('Entry removed');
+      });
+    });
+    wrap.querySelectorAll('.edit-sick').forEach(btn=>{
+      btn.addEventListener('click', ()=> fillSickForm(sickLog.find(e=>e.id===btn.dataset.id)));
+    });
+  }
+
+  function badgeClassFor(outcome){
+    if(outcome==='PRESENT') return 'b-present';
+    if(outcome==='UFD') return 'b-ufd';
+    if(outcome==='LD') return 'b-ld';
+    if(outcome==='EXCUSE') return 'b-excuse';
+    if(outcome==='RSO') return 'b-rso';
+    return 'b-others';
+  }
+  function excuseOutcomeLabel(e){
+    const typeLabel = e.excuseType==='OTHERS' ? (e.excuseOther || 'Others') : (EXCUSE_TYPE_LABEL[e.excuseType]||e.excuseType||'—');
+    return `Excuse (${typeLabel})`;
+  }
+
+  function fillSickForm(entry){
+    if(!entry) return;
+    const r = recruitById(entry.recruitId);
+    document.getElementById('sickRecruitInput').value = r ? recruitLabel(r) : '';
+    document.getElementById('sickRecruitId').value = entry.recruitId;
+    document.getElementById('sickStartDate').value = entry.startDate;
+    document.getElementById('sickEndDate').value = entry.endDate || entry.startDate;
+    document.getElementById('sickOutcome').value = entry.outcome;
+    document.getElementById('sickExcuseType').value = entry.excuseType || 'UL';
+    toggleExcuseType();
+    document.getElementById('sickExcuseOther').value = entry.excuseOther || '';
+    document.getElementById('sickReason').value = entry.reason || '';
+    document.getElementById('sickLocation').value = entry.location || 'PTMC';
+    toggleLocationOther();
+    document.getElementById('sickLocationOther').value = entry.locationOther || '';
+    document.getElementById('sickRemarks').value = entry.remarks || '';
+    editingSickId = entry.id;
+    document.getElementById('sickFormTitle').firstChild.textContent = 'Edit Outcome ';
+    document.getElementById('btnLogSick').textContent = 'Update Entry';
+    document.getElementById('btnCancelEdit').style.display = 'inline-block';
+  }
+  function resetSickForm(){
+    editingSickId = null;
+    document.getElementById('sickReason').value='';
+    document.getElementById('sickLocationOther').value='';
+    document.getElementById('sickExcuseOther').value='';
+    document.getElementById('sickRemarks').value='';
+    document.getElementById('sickLocation').value='PTMC';
+    document.getElementById('sickOutcome').value='UFD';
+    document.getElementById('sickStartDate').value = todayStr();
+    document.getElementById('sickEndDate').value = todayStr();
+    toggleLocationOther();
+    toggleExcuseType();
+    document.getElementById('sickFormTitle').firstChild.textContent = 'Log an Outcome ';
+    document.getElementById('btnLogSick').textContent = 'Log Outcome';
+    document.getElementById('btnCancelEdit').style.display = 'none';
+  }
+
+  function goEditSickEntry(id){
+    const entry = sickLog.find(e=>e.id===id);
+    if(!entry) return;
+    switchTab('sick');
+    fillSickForm(entry);
+    document.getElementById('view-sick').scrollIntoView({behavior:'smooth'});
+  }
+  window.goEditSickEntry = goEditSickEntry;
+
+  async function logSickOutcome(){
+    const recruitId = document.getElementById('sickRecruitId').value;
+    let startDate = document.getElementById('sickStartDate').value || todayStr();
+    let endDate = document.getElementById('sickEndDate').value || startDate;
+    if(endDate < startDate) endDate = startDate;
+    const outcome = document.getElementById('sickOutcome').value;
+    const excuseType = outcome === 'EXCUSE' ? document.getElementById('sickExcuseType').value : '';
+    const excuseOther = (outcome === 'EXCUSE' && excuseType === 'OTHERS') ? document.getElementById('sickExcuseOther').value.trim() : '';
+    const reason = document.getElementById('sickReason').value.trim();
+    const location = document.getElementById('sickLocation').value;
+    const locationOther = document.getElementById('sickLocationOther').value.trim();
+    const remarks = document.getElementById('sickRemarks').value.trim();
+    if(!recruitId){ toast('Add a recruit first'); return; }
+
+    if(editingSickId){
+      const idx = sickLog.findIndex(e=>e.id===editingSickId);
+      if(idx>-1){ sickLog[idx] = {...sickLog[idx], recruitId, startDate, endDate, outcome, excuseType, excuseOther, reason, location, locationOther, remarks, updatedAt: Date.now()}; }
+    } else {
+      sickLog.push({id: uid(), recruitId, startDate, endDate, outcome, excuseType, excuseOther, reason, location, locationOther, remarks, createdAt: Date.now()});
+    }
+    await saveSickLog();
+
+    const excuseLabel = excuseType === 'OTHERS' ? (excuseOther || 'Others') : (EXCUSE_TYPE_LABEL[excuseType]||excuseType);
+    const statusRemarks = outcome === 'EXCUSE'
+      ? `${excuseLabel}${reason?' - '+reason:''}`
+      : (reason || remarks);
+
+    for(const d of dateRange(startDate, endDate)){
+      const paradeForDate = (d === currentParadeDate) ? paradeToday : await loadParade(d);
+      paradeForDate[recruitId] = {status: outcome, remarks: statusRemarks};
+      await saveParade(d, paradeForDate);
+      await logStatusChange(recruitId, d, outcome, statusRemarks, 'sick-log');
+      if(d === currentParadeDate){ paradeToday = paradeForDate; }
+    }
+    renderParadeTable();
+    renderStrength();
+
+    resetSickForm();
+    renderSickLog();
+    renderPending();
+    toast(editingSickId ? 'Entry updated' : 'Outcome logged');
+  }
+
+  function exportExcel(){
+    if(typeof XLSX === 'undefined'){ toast('Excel library still loading — try again shortly'); return; }
+    const logRows = [['Start Date (When)','End Date','Days','4D','Name (Who)','Section (Unit)','Outcome (What)','Excuse Type','Reason (Why)','Reported To (Where)','Remarks (How)']];
+    [...sickLog].sort((a,b)=>a.startDate.localeCompare(b.startDate)).forEach(e=>{
+      const r = recruitById(e.recruitId);
+      const loc = e.location==='OTHERS' ? (e.locationOther||'Others') : (LOCATION_LABEL[e.location]||e.location||'');
+      const excuseTypeLabel = e.outcome==='EXCUSE' ? (e.excuseType==='OTHERS' ? (e.excuseOther||'Others') : (EXCUSE_TYPE_LABEL[e.excuseType]||e.excuseType||'')) : '';
+      const days = dateRange(e.startDate, e.endDate||e.startDate).length;
+      logRows.push([e.startDate, e.endDate||e.startDate, days, r?r.fourD||'':'', r?r.name:'(removed)', r?r.section:'', OUTCOME_LABEL[e.outcome]||e.outcome, excuseTypeLabel, e.reason||'', loc, e.remarks||'']);
+    });
+
+    const summaryMap = {};
+    roster.forEach(r=>{ summaryMap[r.id] = {fourD:r.fourD||'', name:r.name, section:r.section, rso:0, rsi:0, ufd:0, ld:0, excuse:0, fit:0, ufdDates:[], ldDates:[], excuseDates:[]}; });
+    sickLog.forEach(e=>{
+      if(!summaryMap[e.recruitId]) return;
+      const s = summaryMap[e.recruitId];
+      const dateLabel = (e.endDate && e.endDate !== e.startDate) ? `${e.startDate}→${e.endDate}` : e.startDate;
+      s.rso++; s.rsi++;
+      if(e.outcome==='UFD'){ s.ufd++; s.ufdDates.push(dateLabel); }
+      else if(e.outcome==='LD'){ s.ld++; s.ldDates.push(dateLabel); }
+      else if(e.outcome==='EXCUSE'){ s.excuse++; s.excuseDates.push(`${dateLabel} (${e.excuseType==='OTHERS'?(e.excuseOther||'Others'):(EXCUSE_TYPE_LABEL[e.excuseType]||e.excuseType)})`); }
+      else if(e.outcome==='PRESENT'){ s.fit++; }
+    });
+    const summaryRows = [['4D','Name','Section','RSO Count (times sent)','RSI Count (outcomes logged)','UFD Count','UFD Dates','LD Count','LD Dates','Excuse Count','Excuse Dates (Type)','Fit Count']];
+    Object.values(summaryMap).sort((a,b)=> a.section.localeCompare(b.section) || a.name.localeCompare(b.name)).forEach(s=>{
+      summaryRows.push([s.fourD, s.name, s.section, s.rso, s.rsi, s.ufd, s.ufdDates.join(', '), s.ld, s.ldDates.join(', '), s.excuse, s.excuseDates.join(', '), s.fit]);
+    });
+
+    const ootRows = [['4D','Name','Section','Start Date','End Date','Status','Days','Note']];
+    [...ootLog].sort((a,b)=>a.startDate.localeCompare(b.startDate)).forEach(o=>{
+      const r = recruitById(o.recruitId);
+      const days = daysBetween(o.startDate, o.endDate || todayStr()) + 1;
+      ootRows.push([r?r.fourD||'':'', r?r.name:'(removed)', r?r.section:'', o.startDate, o.endDate||'', o.endDate?'Closed':'Active', days, o.note||'']);
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ootRows), 'OOT Log');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(logRows), 'RS Log (5W1H)');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Summary by Recruit');
+    XLSX.writeFile(wb, `Falcon_ReportSick_${todayStr()}.xlsx`);
+    toast('Excel file downloaded');
+  }
+
+  function renderRoster(){
+    document.getElementById('rosterCount').textContent = `(${roster.length} total)`;
+    const wrap = document.getElementById('rosterWrap');
+    if(roster.length===0){ wrap.innerHTML = '<div class="empty">No recruits added yet.</div>'; return; }
+    wrap.innerHTML = allGroupsPresent().map(sec=>{
+      const members = sortMembers(roster.filter(r=>r.section===sec));
+      if(!members.length) return '';
+      return `<div class="roster-section">
+        <h3>${sec} &middot; ${members.length}</h3>
+        <div class="roster-list">
+          ${members.map(r=>`<span class="roster-tag">${r.fourD?`<span class="fourd-tag">${escapeHtml(r.fourD)}</span>`:''}${escapeHtml(r.name)}<button class="ghost del-recruit" data-id="${r.id}">✕</button></span>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.del-recruit').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const r = recruitById(btn.dataset.id);
+        if(!confirm(`Remove ${r.name} from the roster? Their history will be kept.`)) return;
+        roster = roster.filter(x=>x.id!==btn.dataset.id);
+        await saveRoster();
+        renderRoster(); renderParadeTable(); renderStrength(); populateSickRecruitSelect();
+        toast('Recruit removed');
+      });
+    });
+  }
+
+  async function addRecruit(fourD, name){
+    name = (name||'').trim();
+    if(!name) return;
+    fourD = (fourD||'').trim();
+    const section = sectionLabelFromFourD(fourD);
+    roster.push({id: uid(), name, section, fourD});
+    await saveRoster();
+  }
+
+  function renderCalendar(){
+    const wrap = document.getElementById('calendarGrid');
+    const first = new Date(calYear, calMonth, 1);
+    const startDay = first.getDay();
+    const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+    document.getElementById('calMonthLabel').textContent = first.toLocaleDateString('en-GB', {month:'long', year:'numeric'});
+
+    const counts = {};
+    sickLog.forEach(e=>{ dateRange(e.startDate, e.endDate||e.startDate).forEach(d=>{ counts[d] = (counts[d]||0)+1; }); });
+
+    const dow = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+    let cells = dow.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+    for(let i=0;i<startDay;i++) cells += `<div class="cal-cell empty-cell"></div>`;
+    for(let d=1; d<=daysInMonth; d++){
+      const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const c = counts[dateStr] || 0;
+      cells += `<div class="cal-cell ${c>0?'has-entries':''} ${dateStr===selectedCalDate?'selected':''} ${dateStr===todayStr()?'is-today':''}" data-date="${dateStr}">
+        <span class="cal-daynum">${d}</span>${c>0?`<span class="cal-count">${c}</span>`:''}
+      </div>`;
+    }
+    wrap.innerHTML = cells;
+    wrap.querySelectorAll('.cal-cell[data-date]').forEach(cell=>{
+      cell.addEventListener('click', ()=>{ selectedCalDate = cell.dataset.date; renderCalendar(); renderCalendarDayList(); });
+    });
+    renderCalendarDayList();
+  }
+
+  function renderCalendarDayList(){
+    const wrap = document.getElementById('calendarDayList');
+    const label = document.getElementById('calendarDayLabel');
+    if(!selectedCalDate){ wrap.innerHTML = '<div class="empty">Click a date to see who reported sick.</div>'; label.textContent=''; return; }
+    label.textContent = selectedCalDate;
+    const entries = sickLog.filter(e => e.startDate <= selectedCalDate && (e.endDate||e.startDate) >= selectedCalDate);
+    if(entries.length===0){ wrap.innerHTML = '<div class="empty">No report sick entries on this date.</div>'; return; }
+    wrap.innerHTML = entries.map(e=>{
+      const r = recruitById(e.recruitId);
+      const loc = e.location==='OTHERS' ? (e.locationOther||'Others') : (LOCATION_LABEL[e.location]||e.location);
+      const outcomeLabel = e.outcome==='EXCUSE' ? excuseOutcomeLabel(e) : (OUTCOME_LABEL[e.outcome]||e.outcome);
+      return `<div class="pending-item">
+        <div>
+          <span class="who">${r?escapeHtml(recruitLabel(r)):'(removed)'}</span>
+          <span class="meta"> ${outcomeLabel} · ${escapeHtml(loc||'')}${e.reason?(' · '+escapeHtml(e.reason)):''}</span>
+        </div>
+        <button class="ghost cal-edit" data-id="${e.id}">Edit</button>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.cal-edit').forEach(btn=> btn.addEventListener('click', ()=>goEditSickEntry(btn.dataset.id)));
+  }
+
+  function renderHistorySearch(){
+    const q = document.getElementById('historySearch').value.trim().toLowerCase();
+    const wrap = document.getElementById('historyResults');
+    if(!q){ wrap.innerHTML=''; return; }
+    const matches = roster.filter(r=> r.name.toLowerCase().includes(q) || (r.fourD||'').toLowerCase().includes(q));
+    if(matches.length===0){ wrap.innerHTML='<div class="empty">No matching recruit.</div>'; return; }
+    wrap.innerHTML = matches.map(r=>`<div class="pending-item hist-match" data-id="${r.id}" style="cursor:pointer;">
+        <div><span class="who">${escapeHtml(recruitLabel(r))}</span><span class="meta"> ${r.section}</span></div>
+        <button class="ghost">View History</button>
+      </div>`).join('');
+    wrap.querySelectorAll('.hist-match').forEach(el=> el.addEventListener('click', ()=> showRecruitHistory(el.dataset.id)));
+  }
+
+  function showRecruitHistory(recruitId){
+    const r = recruitById(recruitId);
+    if(!r) return;
+    document.getElementById('historyDetail').style.display = 'block';
+
+    const rsEntries = sickLog.filter(e=>e.recruitId===recruitId).sort((a,b)=>b.startDate.localeCompare(a.startDate));
+    const counts = {total: rsEntries.length, ufd:0, ld:0, excuse:0, fit:0};
+    rsEntries.forEach(e=>{
+      if(e.outcome==='UFD') counts.ufd++;
+      else if(e.outcome==='LD') counts.ld++;
+      else if(e.outcome==='EXCUSE') counts.excuse++;
+      else if(e.outcome==='PRESENT') counts.fit++;
+    });
+    const ootCount = ootLog.filter(o=>o.recruitId===recruitId).length;
+
+    const statEntries = statusHistory.filter(e=>e.recruitId===recruitId).sort((a,b)=> (b.timestamp||0)-(a.timestamp||0));
+
+    document.getElementById('historyName').textContent = recruitLabel(r) + ` (${r.section})`;
+    document.getElementById('historyCounts').innerHTML = `
+      <div class="strength-chip"><div class="n">${counts.total}</div><div class="l">Total RS</div></div>
+      <div class="strength-chip"><div class="n" style="color:var(--ufd)">${counts.ufd}</div><div class="l">UFD</div></div>
+      <div class="strength-chip"><div class="n" style="color:var(--ld)">${counts.ld}</div><div class="l">Light Duty</div></div>
+      <div class="strength-chip"><div class="n" style="color:var(--excuse)">${counts.excuse}</div><div class="l">Excuse</div></div>
+      <div class="strength-chip"><div class="n" style="color:var(--oot)">${ootCount}</div><div class="l">OOT Periods</div></div>
+      <div class="strength-chip"><div class="n" style="color:var(--present)">${counts.fit}</div><div class="l">Fit</div></div>`;
+
+    document.getElementById('historyRSLog').innerHTML = rsEntries.length ? rsEntries.map(e=>{
+      const loc = e.location==='OTHERS' ? (e.locationOther||'Others') : (LOCATION_LABEL[e.location]||e.location);
+      const outcomeLabel = e.outcome==='EXCUSE' ? excuseOutcomeLabel(e) : (OUTCOME_LABEL[e.outcome]||e.outcome);
+      const dateRangeLabel = (e.endDate && e.endDate !== e.startDate) ? `${e.startDate} → ${e.endDate}` : e.startDate;
+      return `<div class="pending-item">
+        <div><span class="who" style="font-family:'IBM Plex Mono',monospace;">${dateRangeLabel}</span>
+        <span class="meta"> ${outcomeLabel} · ${escapeHtml(loc||'')}${e.reason?(' · '+escapeHtml(e.reason)):''}</span></div>
+        <button class="ghost" onclick="goEditSickEntry('${e.id}')">Edit</button>
+      </div>`;
+    }).join('') : '<div class="empty">No report sick entries.</div>';
+
+    const statusWrap = document.getElementById('historyStatusLog');
+    statusWrap.innerHTML = statEntries.length ? statEntries.map(e=>`
+      <div class="pending-item">
+        <div><span class="who" style="font-family:'IBM Plex Mono',monospace;">${e.date}</span>
+        <span class="meta"> ${STATUS_LABEL[e.status]||e.status}${e.remarks?(' · '+escapeHtml(e.remarks)):''}</span></div>
+        <button class="ghost danger del-hist" data-id="${e.id}">✕</button>
+      </div>`).join('') : '<div class="empty">No status change history.</div>';
+    statusWrap.querySelectorAll('.del-hist').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        statusHistory = statusHistory.filter(x=>x.id!==btn.dataset.id);
+        await setKey('status-history', JSON.stringify(statusHistory));
+        showRecruitHistory(recruitId);
+        toast('History entry removed');
+      });
+    });
+  }
+
+  function switchTab(view){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.view===view));
+    document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+view));
+    if(view==='sick') renderPending();
+    if(view==='oot') renderOotTab();
+    if(view==='calendar') renderCalendar();
+  }
+
+  function initTabs(){
+    document.querySelectorAll('.tab').forEach(tab=>{
+      tab.addEventListener('click', ()=> switchTab(tab.dataset.view));
+    });
+  }
+
+  async function init(){
+    initTabs();
+    tickClock();
+    setInterval(tickClock, 30000);
+
+    const dToday = todayStr();
+    document.getElementById('paradeDate').value = dToday;
+    document.getElementById('pendingDate').value = dToday;
+    document.getElementById('sickStartDate').value = dToday;
+    document.getElementById('sickEndDate').value = dToday;
+    document.getElementById('ootStartDate').value = dToday;
+
+    toast('Syncing with Google Sheets...');
+
+    await loadRoster();
+    await loadSickLog();
+    await loadStatusHistory();
+    await loadOotLog();
+    paradeToday = await loadParade(dToday);
+
+    renderParadeTable();
+    renderStrength();
+    populateSickRecruitSelect();
+    toggleLocationOther();
+    toggleExcuseType();
+    renderSickLog();
+    renderPending();
+    renderRoster();
+    renderCalendar();
+    renderOotTab();
+
+    toast('Data loaded successfully');
+
+    document.getElementById('paradeDate').addEventListener('change', (e)=> switchParadeDate(e.target.value || todayStr()));
+    document.getElementById('pendingDate').addEventListener('change', (e)=>{ currentSickDate = e.target.value || todayStr(); renderPending(); });
+    document.getElementById('sickStartDate').addEventListener('change', (e)=>{
+      const endInput = document.getElementById('sickEndDate');
+      if(!endInput.value || endInput.value < e.target.value) endInput.value = e.target.value;
+    });
+    document.getElementById('sickLocation').addEventListener('change', toggleLocationOther);
+    document.getElementById('sickOutcome').addEventListener('change', toggleExcuseType);
+    document.getElementById('sickExcuseType').addEventListener('change', toggleExcuseOther);
+
+    const recruitInput = document.getElementById('sickRecruitInput');
+    const recruitList = document.getElementById('sickRecruitList');
+    recruitInput.addEventListener('focus', ()=>{ renderRecruitCombo(''); recruitList.style.display = 'block'; });
+    recruitInput.addEventListener('input', ()=>{
+      document.getElementById('sickRecruitId').value = '';
+      renderRecruitCombo(recruitInput.value);
+      recruitList.style.display = 'block';
+    });
+
+    const ootRecruitInput = document.getElementById('ootRecruitInput');
+    const ootRecruitList = document.getElementById('ootRecruitList');
+    ootRecruitInput.addEventListener('focus', ()=>{ renderOotRecruitCombo(''); ootRecruitList.style.display = 'block'; });
+    ootRecruitInput.addEventListener('input', ()=>{
+      document.getElementById('ootRecruitId').value = '';
+      renderOotRecruitCombo(ootRecruitInput.value);
+      ootRecruitList.style.display = 'block';
+    });
+    document.getElementById('btnMarkOot').addEventListener('click', markOot);
+
+    document.addEventListener('click', (e)=>{
+      if(!e.target.closest('.combo')){ recruitList.style.display = 'none'; ootRecruitList.style.display = 'none'; }
+    });
+
+    document.getElementById('btnCopySitrep').addEventListener('click', ()=>{
+      const text = buildSitrepText();
+      navigator.clipboard.writeText(text).then(()=>toast('Sitrep copied to clipboard')).catch(()=>{
+        const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta); toast('Sitrep copied to clipboard');
+      });
+    });
+
+    document.getElementById('btnLogSick').addEventListener('click', logSickOutcome);
+    document.getElementById('btnCancelEdit').addEventListener('click', resetSickForm);
+    document.getElementById('sickSearch').addEventListener('input', renderSickLog);
+    document.getElementById('btnExportExcel').addEventListener('click', exportExcel);
+
+    document.getElementById('btnPrevMonth').addEventListener('click', ()=>{ calMonth--; if(calMonth<0){calMonth=11; calYear--;} renderCalendar(); });
+    document.getElementById('btnNextMonth').addEventListener('click', ()=>{ calMonth++; if(calMonth>11){calMonth=0; calYear++;} renderCalendar(); });
+
+    document.getElementById('historySearch').addEventListener('input', renderHistorySearch);
+
+    document.getElementById('newRecruitFourD').addEventListener('input', (e)=>{
+      document.getElementById('newRecruitSectionPreview').textContent = sectionLabelFromFourD(e.target.value);
+    });
+
+    document.getElementById('btnAddRecruit').addEventListener('click', async ()=>{
+      const fourD = document.getElementById('newRecruitFourD').value;
+      const name = document.getElementById('newRecruitName').value;
+      if(!name.trim()){ toast('Enter a name'); return; }
+      await addRecruit(fourD, name);
+      document.getElementById('newRecruitFourD').value = '';
+      document.getElementById('newRecruitName').value = '';
+      document.getElementById('newRecruitSectionPreview').textContent = 'Unassigned';
+      renderRoster(); renderParadeTable(); renderStrength(); populateSickRecruitSelect();
+      toast('Recruit added');
+    });
+
+    function parseBulkLine(line){
+      const tokens = line.trim().split(/\s+/).filter(t=>t && t!=='.');
+      if(tokens.length===0) return null;
+      let fourD = '', name = '';
+      if(isFourDTok(tokens[0])){
+        fourD = tokens[0];
+        name = tokens.slice(1).join(' ');
+      } else {
+        name = tokens.join(' ');
+      }
+      name = name.trim();
+      if(!name) return null;
+      return {fourD, name};
+    }
+
+    document.getElementById('btnBulkAdd').addEventListener('click', async ()=>{
+      const raw = document.getElementById('bulkNames').value;
+      const lines = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+      if(lines.length===0){ toast('Paste at least one line'); return; }
+      let added = 0;
+      lines.forEach(line=>{
+        const parsed = parseBulkLine(line);
+        if(!parsed) return;
+        const section = sectionLabelFromFourD(parsed.fourD);
+        roster.push({id: uid(), name: parsed.name, section, fourD: parsed.fourD});
+        added++;
+      });
+      await saveRoster();
+      document.getElementById('bulkNames').value = '';
+      renderRoster(); renderParadeTable(); renderStrength(); populateSickRecruitSelect();
+      toast(`${added} recruit${added===1?'':'s'} added`);
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
