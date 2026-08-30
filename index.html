@@ -622,6 +622,7 @@
     toast._h = setTimeout(()=>t.classList.remove('show'), 1800);
   }
 
+  // Replace this URL with your newly deployed Google Apps Script Web App URL
   const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbw-2Ta7_ZzL1amgtI_QZp17-NgIA9MT4zKI3gGbLzN4Wz1fdK3-OJcEq31RExoy8dOQ/exec";
   
   async function getKey(key) {
@@ -725,7 +726,7 @@
       members.forEach(r=>{
         const entry = paradeToday[r.id] || {status:'PRESENT', remarks:''};
         html += `<tr data-id="${r.id}">
-          <td class="name-cell">${r.fourD?`<span class="fourd-tag">${escapeHtml(r.fourD)}</span>`:''}${escapeHtml(r.name)}</td>
+          <td class="name-cell">${r.fourD?`<span class="fourd-tag">${escapeHtml(r.fourD)}</span>`:''} ${escapeHtml(r.name)}</td>
           <td>
             <select class="status-select" data-id="${r.id}">
               ${STATUSES.map(s=>`<option value="${s}" ${entry.status===s?'selected':''}>${STATUS_LABEL[s]}</option>`).join('')}
