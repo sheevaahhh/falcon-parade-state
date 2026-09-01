@@ -411,6 +411,23 @@
   <!-- ROSTER -->
   <div class="view" id="view-roster">
     <div class="panel">
+      <h2>Google Sheet Sync <span class="sub">Paste your Apps Script Web App URL below. Once set, every roster change, parade status update, sick outcome, and OOT change is pushed live to your Google Sheet.</span></h2>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field-group" style="flex:1;">
+          <label>Web App URL</label>
+          <input type="text" id="sheetWebAppUrl" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+        </div>
+        <div class="field-group">
+          <button id="btnSaveSheetUrl">Save</button>
+        </div>
+        <div class="field-group">
+          <button id="btnSyncNow">Sync Now</button>
+        </div>
+      </div>
+      <div class="sub" id="sheetSyncStatus" style="margin-top:8px;">Not connected.</div>
+    </div>
+
+    <div class="panel">
       <h2>Add Recruit</h2>
       <div class="row" style="align-items:flex-end;">
         <div class="field-group">
@@ -436,7 +453,7 @@
       <div class="row" style="align-items:flex-end;">
         <div class="field-group" style="flex:1;">
           <label>4D&nbsp;&nbsp;Name</label>
-          <textarea id="bulkNames" style="min-height:160px;" placeholder="1111&#9;SENTHILKUMAR SHIVA"></textarea>
+          <textarea id="bulkNames" style="min-height:160px;" placeholder="1111&#9;SENTHILKUMAR SHIVA&#10;1103&#9;LEONG KAI JIE&#10;&#10;1201&#9;CHUAN TECK YAO"></textarea>
         </div>
         <div class="field-group">
           <button id="btnBulkAdd">Add All</button>
@@ -623,6 +640,7 @@
         renderStrength();
         if(currentParadeDate === currentSickDate) renderPending();
         toast('Status updated');
+        syncToSheet();
       });
     });
     wrap.querySelectorAll('.remarks-input').forEach(inp=>{
@@ -632,6 +650,7 @@
         paradeToday[id].remarks = e.target.value;
         await saveParade(currentParadeDate, paradeToday);
         toast('Remarks saved');
+        syncToSheet();
       });
     });
   }
@@ -820,7 +839,7 @@
     wrap.querySelectorAll('.close-oot').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
         const o = ootLog.find(x=>x.id===btn.dataset.id);
-        if(o){ o.endDate = todayStr(); await saveOotLog(); renderOotCurrent(); renderOotHistory(); renderPendingOot(); toast('OOT closed'); }
+        if(o){ o.endDate = todayStr(); await saveOotLog(); renderOotCurrent(); renderOotHistory(); renderPendingOot(); toast('OOT closed'); syncToSheet(); }
       });
     });
     wrap.querySelectorAll('.del-oot').forEach(btn=>{
@@ -829,6 +848,7 @@
         await saveOotLog();
         renderOotCurrent(); renderOotHistory(); renderPendingOot();
         toast('OOT entry removed');
+        syncToSheet();
       });
     });
   }
@@ -854,6 +874,7 @@
         await saveOotLog();
         renderOotHistory();
         toast('OOT entry removed');
+        syncToSheet();
       });
     });
   }
@@ -877,6 +898,7 @@
     document.getElementById('ootNote').value='';
     renderOotTab();
     toast('Marked OOT');
+    syncToSheet();
   }
 
   function renderSickLog(){
@@ -1026,6 +1048,95 @@
     renderSickLog();
     renderPending();
     toast(editingSickId ? 'Entry updated' : 'Outcome logged');
+    syncToSheet();
+  }
+
+  let sheetWebAppUrl = '';
+
+  async function loadSheetWebAppUrl(){
+    const v = await getKey('sheet-webapp-url');
+    sheetWebAppUrl = v || '';
+    return sheetWebAppUrl;
+  }
+  async function saveSheetWebAppUrl(url){
+    sheetWebAppUrl = (url||'').trim();
+    await setKey('sheet-webapp-url', sheetWebAppUrl);
+  }
+
+  async function buildSyncPayload(){
+    const today = todayStr();
+    const todaysParade = (currentParadeDate === today) ? paradeToday : await loadParade(today);
+    const members = sortMembers(roster);
+
+    const rosterOut = members.map(r=>({fourD:r.fourD||'', name:r.name, section:r.section}));
+
+    const paradeOut = members.map(r=>{
+      const entry = todaysParade[r.id] || {status:'PRESENT', remarks:''};
+      return {fourD:r.fourD||'', name:r.name, section:r.section, status: STATUS_LABEL[entry.status]||entry.status, remarks: entry.remarks||''};
+    });
+
+    const sickByRecruit = {};
+    [...sickLog].sort((a,b)=>a.startDate.localeCompare(b.startDate)).forEach(e=>{ sickByRecruit[e.recruitId] = e; });
+    const sickOut = Object.keys(sickByRecruit).map(rid=>{
+      const r = recruitById(rid); if(!r) return null;
+      const e = sickByRecruit[rid];
+      const loc = e.location==='OTHERS' ? (e.locationOther||'Others') : (LOCATION_LABEL[e.location]||e.location||'');
+      const excuseTypeLabel = e.outcome==='EXCUSE' ? (e.excuseType==='OTHERS' ? (e.excuseOther||'Others') : (EXCUSE_TYPE_LABEL[e.excuseType]||e.excuseType||'')) : '';
+      const days = dateRange(e.startDate, e.endDate||e.startDate).length;
+      return {fourD:r.fourD||'', name:r.name, section:r.section, outcome: OUTCOME_LABEL[e.outcome]||e.outcome, excuseType: excuseTypeLabel, reason: e.reason||'', location: loc, remarks: e.remarks||'', startDate: e.startDate, endDate: e.endDate||e.startDate, days};
+    }).filter(Boolean);
+
+    const ootByRecruit = {};
+    [...ootLog].sort((a,b)=>a.startDate.localeCompare(b.startDate)).forEach(o=>{ ootByRecruit[o.recruitId] = o; });
+    const ootOut = Object.keys(ootByRecruit).map(rid=>{
+      const r = recruitById(rid); if(!r) return null;
+      const o = ootByRecruit[rid];
+      const days = daysBetween(o.startDate, o.endDate || today) + 1;
+      return {fourD:r.fourD||'', name:r.name, section:r.section, status: o.endDate?'Closed':'Active', startDate:o.startDate, endDate:o.endDate||'', days, note:o.note||''};
+    }).filter(Boolean);
+
+    const counts = {PRESENT:0, RSO:0, UFD:0, LD:0, EXCUSE:0};
+    roster.forEach(r=>{
+      const entry = todaysParade[r.id];
+      const st = entry && entry.status ? entry.status : 'PRESENT';
+      counts[st] = (counts[st]||0) + 1;
+    });
+    const ootActiveCount = ootLog.filter(o=> !o.endDate || o.endDate >= today).length;
+    const total = roster.length;
+    const inCamp = total - counts.UFD;
+    const participating = inCamp - counts.LD - counts.EXCUSE - counts.RSO;
+    const others = Math.max(0, total - ootActiveCount - counts.PRESENT - counts.RSO - counts.UFD - counts.LD - counts.EXCUSE);
+
+    return {
+      companyName: 'Falcon Company',
+      updatedAt: new Date().toISOString(),
+      roster: rosterOut,
+      parade: paradeOut,
+      sickLatest: sickOut,
+      ootLatest: ootOut,
+      summary: {
+        total, inCamp, participating,
+        ld: counts.LD, ufd: counts.UFD, excuse: counts.EXCUSE, rso: counts.RSO,
+        oot: ootActiveCount, others
+      }
+    };
+  }
+
+  async function syncToSheet(){
+    if(!sheetWebAppUrl) return;
+    const statusEl = document.getElementById('sheetSyncStatus');
+    try{
+      const payload = await buildSyncPayload();
+      await fetch(sheetWebAppUrl, {
+        method: 'POST',
+        headers: {'Content-Type': 'text/plain;charset=utf-8'},
+        body: JSON.stringify(payload)
+      });
+      if(statusEl) statusEl.textContent = `Last synced ${new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})}`;
+    } catch(err){
+      console.error('Sheet sync failed', err);
+      if(statusEl) statusEl.textContent = 'Sync failed — check the Web App URL and your connection.';
+    }
   }
 
   function exportExcel(){
@@ -1093,6 +1204,7 @@
         await saveRoster();
         renderRoster(); renderParadeTable(); renderStrength(); populateSickRecruitSelect();
         toast('Recruit removed');
+        syncToSheet();
       });
     });
   }
@@ -1252,7 +1364,11 @@
     await loadSickLog();
     await loadStatusHistory();
     await loadOotLog();
+    await loadSheetWebAppUrl();
     paradeToday = await loadParade(dToday);
+
+    document.getElementById('sheetWebAppUrl').value = sheetWebAppUrl;
+    document.getElementById('sheetSyncStatus').textContent = sheetWebAppUrl ? 'Connected. Changes will sync automatically.' : 'Not connected.';
 
     renderParadeTable();
     renderStrength();
@@ -1264,6 +1380,20 @@
     renderRoster();
     renderCalendar();
     renderOotTab();
+
+    document.getElementById('btnSaveSheetUrl').addEventListener('click', async ()=>{
+      const url = document.getElementById('sheetWebAppUrl').value.trim();
+      await saveSheetWebAppUrl(url);
+      document.getElementById('sheetSyncStatus').textContent = url ? 'Connected. Changes will sync automatically.' : 'Not connected.';
+      toast(url ? 'Sheet URL saved' : 'Sheet URL cleared');
+      if(url) syncToSheet();
+    });
+    document.getElementById('btnSyncNow').addEventListener('click', async ()=>{
+      if(!sheetWebAppUrl){ toast('Save a Web App URL first'); return; }
+      document.getElementById('sheetSyncStatus').textContent = 'Syncing…';
+      await syncToSheet();
+      toast('Synced to Google Sheet');
+    });
 
     document.getElementById('paradeDate').addEventListener('change', (e)=> switchParadeDate(e.target.value || todayStr()));
     document.getElementById('pendingDate').addEventListener('change', (e)=>{ currentSickDate = e.target.value || todayStr(); renderPending(); });
@@ -1330,6 +1460,7 @@
       document.getElementById('newRecruitSectionPreview').textContent = 'Unassigned';
       renderRoster(); renderParadeTable(); renderStrength(); populateSickRecruitSelect();
       toast('Recruit added');
+      syncToSheet();
     });
 
     function parseBulkLine(line){
@@ -1363,6 +1494,7 @@
       document.getElementById('bulkNames').value = '';
       renderRoster(); renderParadeTable(); renderStrength(); populateSickRecruitSelect();
       toast(`${added} recruit${added===1?'':'s'} added`);
+      syncToSheet();
     });
   }
 
