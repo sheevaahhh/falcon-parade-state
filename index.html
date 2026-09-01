@@ -1,546 +1,458 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Falcon Parade State & Report Sick Tracker</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    :root {
-      --bg: #0d1117;
-      --card-bg: #161b22;
-      --card-border: #30363d;
-      --text: #c9d1d9;
-      --text-muted: #8b949e;
-      --text-heading: #f0f6fc;
-      --accent: #58a6ff;
-      --khaki: #d2a850;
-      
-      --present: #2ea043;
-      --rso: #f0883e;
-      --ufd: #da3633;
-      --ld: #d29922;
-      --excuse: #a371f7;
-      --oot: #f778ba;
-      --others: #8b949e;
-    }
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      padding: 24px 16px;
-      line-height: 1.5;
-    }
+<style>
+  :root{
+    --bg:#12161B;
+    --panel:#1A2028;
+    --panel-2:#20272F;
+    --line:#2B333D;
+    --ink:#EDEBE4;
+    --ink-dim:#9AA3AD;
+    --khaki:#B5A46A;
+    --khaki-dim:#7D7350;
+    --present:#4C9A6A;
+    --ufd:#C1524F;
+    --ld:#D08A3E;
+    --excuse:#C9A227;
+    --rso:#5B8DBE;
+    --oot:#8B6BB5;
+    --others:#8B93A0;
+    --oot:#9B6FC9;
+    --pending-oot:#C9832F;
+    --radius:6px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;}
+  .app{max-width:1180px;margin:0 auto;padding:22px 20px 60px;}
 
-    .container { max-width: 1100px; margin: 0 auto; }
+  .sitrep{
+    background:linear-gradient(155deg,var(--panel) 0%, var(--panel-2) 100%);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px 22px;
+    margin-bottom:18px;
+    position:relative;
+    overflow:hidden;
+  }
+  .sitrep::before{
+    content:"";
+    position:absolute; left:0; top:0; bottom:0; width:4px;
+    background:var(--khaki);
+  }
+  .sitrep-top{display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; color:var(--khaki); text-transform:uppercase;}
+  h1{font-family:'Oswald',sans-serif; font-weight:700; font-size:27px; letter-spacing:.01em; margin:2px 0 0; text-transform:uppercase;}
+  .sitrep-meta{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-dim); text-align:right;}
+  .strength-row{display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;}
+  .strength-chip{
+    flex:1 1 100px; min-width:92px;
+    background:rgba(255,255,255,.02);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 12px;
+  }
+  .strength-chip .n{font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; line-height:1;}
+  .strength-chip .l{font-size:10.5px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.08em; margin-top:5px;}
 
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--card-border);
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    h1 { font-size: 1.5rem; color: var(--text-heading); font-weight: 700; letter-spacing: -0.02em; }
-    .clock-line { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; color: var(--khaki); }
+  .tabs{display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:18px; flex-wrap:wrap;}
+  .tab{
+    font-family:'Oswald',sans-serif; font-weight:600; letter-spacing:.03em;
+    font-size:13px; text-transform:uppercase;
+    padding:10px 16px; cursor:pointer; color:var(--ink-dim);
+    border-bottom:2px solid transparent; user-select:none;
+  }
+  .tab:hover{color:var(--ink);}
+  .tab.active{color:var(--khaki); border-bottom-color:var(--khaki);}
+  .view{display:none; animation:fade .25s ease;}
+  .view.active{display:block;}
+  @keyframes fade{from{opacity:0; transform:translateY(3px);} to{opacity:1; transform:none;}}
 
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 24px;
-      border-bottom: 1px solid var(--card-border);
-      overflow-x: auto;
-      padding-bottom: 8px;
-    }
-    .tab {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      padding: 8px 16px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      border-radius: 6px;
-      white-space: nowrap;
-      transition: all 0.2s ease;
-    }
-    .tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-    .tab.active { color: var(--text-heading); background: var(--card-bg); border: 1px solid var(--card-border); }
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; margin-bottom:16px;}
+  .panel h2{font-family:'Oswald',sans-serif; font-size:15px; text-transform:uppercase; letter-spacing:.05em; margin:0 0 12px; color:var(--ink); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;}
+  .panel h2 .sub{color:var(--ink-dim); font-family:'Inter',sans-serif; font-weight:400; text-transform:none; letter-spacing:0; font-size:12px; margin-left:8px;}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
 
-    .view { display: none; }
-    .view.active { display: block; }
+  label{font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.06em; display:block; margin-bottom:4px;}
+  input[type=text], input[type=date], select, textarea{
+    background:var(--bg); border:1px solid var(--line); color:var(--ink);
+    border-radius:4px; padding:8px 10px; font-family:'Inter',sans-serif; font-size:13.5px;
+    outline:none;
+  }
+  input:focus, select:focus, textarea:focus{border-color:var(--khaki);}
+  textarea{resize:vertical; width:100%; min-height:70px;}
+  button{
+    font-family:'Oswald',sans-serif; font-weight:600; letter-spacing:.03em; text-transform:uppercase;
+    font-size:12.5px; padding:9px 16px; border-radius:4px; border:1px solid var(--khaki-dim);
+    background:transparent; color:var(--khaki); cursor:pointer; transition:.15s;
+  }
+  button:hover{background:var(--khaki); color:#12161B;}
+  button.ghost{border-color:var(--line); color:var(--ink-dim);}
+  button.ghost:hover{background:var(--panel-2); color:var(--ink); }
+  button.danger{border-color:#5a2f2e; color:var(--ufd);}
+  button.danger:hover{background:var(--ufd); color:#12161B;}
+  button:disabled{opacity:.4; cursor:default; pointer-events:none;}
+  button.small{padding:4px 9px; font-size:11px;}
 
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-    .card-title {
-      font-size: 1.1rem;
-      color: var(--text-heading);
-      margin-bottom: 16px;
-      font-weight: 600;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+  .status-select{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:12px; padding:6px 8px; min-width:106px;}
+  .badge{
+    display:inline-block; font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:11px;
+    padding:3px 8px; border-radius:3px; letter-spacing:.03em; text-transform:uppercase;
+  }
+  .b-present{background:rgba(76,154,106,.16); color:var(--present);}
+  .b-ufd{background:rgba(193,82,79,.16); color:var(--ufd);}
+  .b-ld{background:rgba(208,138,62,.16); color:var(--ld);}
+  .b-excuse{background:rgba(201,162,39,.16); color:var(--excuse);}
+  .b-rso{background:rgba(91,141,190,.16); color:var(--rso);}
+  .b-others{background:rgba(139,147,160,.16); color:var(--others);}
+  .b-oot{background:rgba(155,111,201,.16); color:var(--oot);}
+  .b-pending-oot{background:rgba(201,131,47,.16); color:var(--pending-oot);}
 
-    .strength-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-    .strength-chip {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 6px;
-      padding: 12px;
-      text-align: center;
-    }
-    .strength-chip .n { font-size: 1.5rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
-    .strength-chip .l { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-top: 4px; }
+  .table-scroll{overflow-x:auto;}
+  table{width:100%; border-collapse:collapse; min-width:560px;}
+  th{font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-dim); text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap;}
+  td{padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .section-head td{background:var(--panel-2); font-family:'Oswald',sans-serif; font-weight:600; letter-spacing:.04em; text-transform:uppercase; font-size:12px; color:var(--khaki); padding:7px 10px;}
+  .remarks-input{width:100%; min-width:140px;}
+  .name-cell{font-weight:600;}
+  .fourd-tag{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--khaki); margin-right:6px;}
+  .empty{color:var(--ink-dim); font-style:italic; padding:16px 4px; text-align:center;}
 
-    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media(max-width:768px){ .grid-2 { grid-template-columns: 1fr; } }
+  .pending-item{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:9px 12px; border:1px solid var(--line); border-radius:4px; margin-bottom:8px;
+    background:rgba(91,141,190,.06);
+  }
+  .pending-item .who{font-weight:600;}
+  .pending-item .meta{color:var(--ink-dim); font-size:11.5px; font-family:'IBM Plex Mono',monospace;}
 
-    input, select, textarea, button {
-      font-family: inherit;
-      font-size: 0.9rem;
-    }
-    input[type="text"], input[type="date"], select, textarea {
-      background: #0d1117;
-      border: 1px solid var(--card-border);
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: 6px;
-      outline: none;
-      width: 100%;
-    }
-    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  .toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
+    background:var(--panel-2); border:1px solid var(--khaki-dim); color:var(--ink);
+    padding:9px 18px; border-radius:5px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;
+    opacity:0; pointer-events:none; transition:opacity .2s, transform .2s;
+    z-index:999;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(-4px);}
 
-    button {
-      background: var(--accent);
-      color: #ffffff;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.2s;
-      white-space: nowrap;
-    }
-    button:hover { opacity: 0.9; }
-    button.ghost { background: transparent; border: 1px solid var(--card-border); color: var(--text); }
-    button.ghost:hover { background: rgba(255,255,255,0.05); }
-    button.danger { background: var(--ufd); }
-    button.small { padding: 4px 8px; font-size: 0.8rem; }
+  .roster-section{margin-bottom:14px;}
+  .roster-section h3{font-family:'Oswald',sans-serif; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--khaki); margin:0 0 8px;}
+  .roster-list{display:flex; flex-wrap:wrap; gap:6px;}
+  .roster-tag{
+    display:flex; align-items:center; gap:6px;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:14px;
+    padding:5px 6px 5px 12px; font-size:12.5px;
+  }
+  .roster-tag button{padding:2px 7px; font-size:11px; border-radius:50%; line-height:1;}
+  .field-group{margin-bottom:12px;}
+  .combo{position:relative;}
+  .combo input[type=text]{width:100%; min-width:220px;}
+  .combo-list{
+    position:absolute; top:100%; left:0; right:0; z-index:50;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:4px;
+    max-height:240px; overflow-y:auto; margin-top:4px; display:none;
+    box-shadow:0 8px 20px rgba(0,0,0,.4);
+  }
+  .combo-group-label{font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--khaki); padding:7px 10px 3px;}
+  .combo-item{padding:7px 10px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:6px;}
+  .combo-item:hover, .combo-item.active{background:rgba(181,164,106,.14);}
+  .combo-empty{padding:10px; color:var(--ink-dim); font-style:italic; font-size:12.5px;}
+  .search-row{margin-bottom:12px;}
+  .footnote{color:var(--ink-dim); font-size:11.5px; margin-top:4px;}
 
-    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
-    th { color: var(--text-muted); font-weight: 600; padding: 10px; border-bottom: 1px solid var(--card-border); }
-    td { padding: 10px; border-bottom: 1px solid var(--card-border); }
-    tr.section-head td { background: rgba(255,255,255,0.03); font-weight: 600; color: var(--khaki); font-family: 'IBM Plex Mono', monospace; }
+  .cal-nav{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+  .cal-month-label{font-family:'Oswald',sans-serif; font-weight:600; font-size:16px; text-transform:uppercase; letter-spacing:.04em;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
+  .cal-dow{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-dim); text-align:center; padding:4px 0; text-transform:uppercase;}
+  .cal-cell{position:relative; aspect-ratio:1; border:1px solid var(--line); border-radius:4px; padding:5px; cursor:pointer; transition:.15s;}
+  .cal-cell:hover{border-color:var(--khaki-dim);}
+  .cal-cell.empty-cell{border:none; cursor:default;}
+  .cal-cell.has-entries{background:rgba(91,141,190,.09); border-color:rgba(91,141,190,.45);}
+  .cal-cell.selected{border-color:var(--khaki); box-shadow:0 0 0 1px var(--khaki);}
+  .cal-cell.is-today .cal-daynum{color:var(--khaki); font-weight:700;}
+  .cal-daynum{font-family:'IBM Plex Mono',monospace; font-size:12px;}
+  .cal-count{position:absolute; bottom:4px; right:5px; background:var(--rso); color:#0d1116; font-size:10px; font-weight:700; padding:1px 5px; border-radius:8px; font-family:'IBM Plex Mono',monospace;}
 
-    .fourd-tag {
-      font-family: 'IBM Plex Mono', monospace;
-      color: var(--khaki);
-      background: rgba(210, 168, 80, 0.1);
-      padding: 2px 6px;
-      border-radius: 4px;
-      margin-right: 8px;
-      font-size: 0.85rem;
-    }
+  .hist-counts{display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 16px;}
+  .hist-block{margin-bottom:18px;}
+  .hist-block h3{font-family:'Oswald',sans-serif; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--khaki); margin:0 0 8px;}
 
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-    .b-present { background: rgba(46,160,67,0.2); color: var(--present); }
-    .b-rso { background: rgba(240,136,62,0.2); color: var(--rso); }
-    .b-ufd { background: rgba(218,54,51,0.2); color: var(--ufd); }
-    .b-ld { background: rgba(210,153,34,0.2); color: var(--ld); }
-    .b-excuse { background: rgba(163,113,247,0.2); color: var(--excuse); }
-    .b-others { background: rgba(139,148,158,0.2); color: var(--others); }
+  @media(max-width:640px){
+    .sitrep-top{flex-direction:column; align-items:flex-start;}
+    .sitrep-meta{text-align:left;}
+  }
+</style>
 
-    .combo { position: relative; width: 100%; }
-    .combo-list {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 6px;
-      max-height: 200px;
-      overflow-y: auto;
-      z-index: 10;
-      display: none;
-    }
-    .combo-item { padding: 8px 12px; cursor: pointer; }
-    .combo-item:hover { background: rgba(255,255,255,0.05); }
-    .combo-group-label { padding: 4px 12px; font-size: 0.75rem; color: var(--khaki); font-weight: 600; background: #0d1117; }
-    .combo-empty { padding: 8px 12px; color: var(--text-muted); font-size: 0.85rem; }
+<div class="app">
 
-    .pending-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px;
-      background: #0d1117;
-      border: 1px solid var(--card-border);
-      border-radius: 6px;
-      margin-bottom: 8px;
-    }
-    .pending-item .who { font-weight: 600; color: var(--text-heading); }
-    .pending-item .meta { font-size: 0.8rem; color: var(--text-muted); }
-
-    .roster-section { margin-bottom: 16px; }
-    .roster-section h3 { font-size: 0.9rem; color: var(--khaki); margin-bottom: 8px; font-family: 'IBM Plex Mono', monospace; }
-    .roster-list { display: flex; flex-wrap: wrap; gap: 8px; }
-    .roster-tag {
-      background: #0d1117;
-      border: 1px solid var(--card-border);
-      padding: 4px 8px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .cal-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 4px;
-      text-align: center;
-    }
-    .cal-dow { font-size: 0.8rem; color: var(--text-muted); padding: 4px; font-weight: 600; }
-    .cal-cell {
-      background: #0d1117;
-      border: 1px solid var(--card-border);
-      border-radius: 4px;
-      min-height: 48px;
-      padding: 4px;
-      cursor: pointer;
-      position: relative;
-    }
-    .cal-cell:hover { border-color: var(--accent); }
-    .cal-cell.empty-cell { background: transparent; border-color: transparent; cursor: default; }
-    .cal-cell.selected { border-color: var(--accent); background: rgba(88,166,255,0.1); }
-    .cal-cell.is-today { border-color: var(--khaki); }
-    .cal-daynum { font-size: 0.8rem; font-family: 'IBM Plex Mono', monospace; }
-    .cal-count {
-      position: absolute;
-      bottom: 4px;
-      right: 4px;
-      background: var(--ufd);
-      color: #fff;
-      font-size: 0.7rem;
-      padding: 1px 5px;
-      border-radius: 10px;
-      font-family: 'IBM Plex Mono', monospace;
-    }
-
-    #toast {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      color: var(--text-heading);
-      padding: 12px 20px;
-      border-radius: 6px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-      display: none;
-      z-index: 100;
-      font-size: 0.9rem;
-    }
-    #toast.show { display: block; }
-    .empty { color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 8px 0; }
-  </style>
-</head>
-<body>
-
-<div class="container">
-  <header>
-    <div>
-      <h1>Falcon Parade State</h1>
-      <div class="clock-line" id="clockLine">--:-- -- SGT</div>
+  <div class="sitrep">
+    <div class="sitrep-top">
+      <div>
+        <div class="eyebrow">Falcon Company</div>
+        <h1>Parade State &amp; Report Sick</h1>
+      </div>
+      <div class="sitrep-meta" id="clockLine">—</div>
     </div>
-  </header>
-
-  <div class="strength-row" id="strengthRow"></div>
+    <div class="strength-row" id="strengthRow"></div>
+  </div>
 
   <div class="tabs">
-    <button class="tab active" data-view="parade">Parade State</button>
-    <button class="tab" data-view="sick">Report Sick</button>
-    <button class="tab" data-view="oot">OOT Tracker</button>
-    <button class="tab" data-view="calendar">Calendar</button>
-    <button class="tab" data-view="history">Recruit History</button>
-    <button class="tab" data-view="roster">Roster</button>
+    <div class="tab active" data-view="parade">Parade State</div>
+    <div class="tab" data-view="sick">Report Sick</div>
+    <div class="tab" data-view="oot">OOT</div>
+    <div class="tab" data-view="calendar">Calendar</div>
+    <div class="tab" data-view="history">History</div>
+    <div class="tab" data-view="roster">Roster</div>
   </div>
 
-  <!-- VIEW: PARADE STATE -->
+  <!-- PARADE STATE -->
   <div class="view active" id="view-parade">
-    <div class="card">
-      <div class="card-title">
-        <div>
-          Daily Attendance
-          <span style="font-size: 0.8rem; color: var(--text-muted);" id="paradeSubcount"></span>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between; margin-bottom:4px;">
+        <div class="row">
+          <div>
+            <label>Date</label>
+            <input type="date" id="paradeDate">
+          </div>
         </div>
         <div class="row">
-          <input type="date" id="paradeDate" style="width: auto;">
-          <button id="btnCopySitrep">Copy Sitrep</button>
+          <button class="ghost" id="btnCopySitrep">Copy Sitrep (WhatsApp)</button>
         </div>
       </div>
-      <div id="paradeTableWrap"></div>
+    </div>
+
+    <div class="panel">
+      <h2>All Recruits <span class="sub" id="paradeSubcount"></span></h2>
+      <div class="table-scroll" id="paradeTableWrap"></div>
     </div>
   </div>
 
-  <!-- VIEW: REPORT SICK -->
+  <!-- REPORT SICK -->
   <div class="view" id="view-sick">
-    <div id="pendingPanel" class="card" style="display:none; border-color: var(--rso);">
-      <div class="card-title" style="color: var(--rso);">
-        <div>Pending Outcome Logging</div>
-        <input type="date" id="pendingDate" style="width: auto;">
+    <div class="panel" id="pendingPanel" style="display:none;">
+      <h2>Pending Outcomes <span class="sub">Marked RSO, no outcome logged yet covering this date</span></h2>
+      <div class="row" style="margin-bottom:10px;">
+        <label style="margin:0;">Viewing</label>
+        <input type="date" id="pendingDate">
       </div>
       <div id="pendingList"></div>
     </div>
 
-    <div class="card">
-      <div class="card-title" id="sickFormTitle">
-        Log an Outcome
-        <button class="ghost small" id="btnCancelEdit" style="display:none;">Cancel Edit</button>
-      </div>
-      <div class="grid-2" style="margin-bottom: 12px;">
-        <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Recruit</label>
-          <div class="combo">
-            <input type="text" id="sickRecruitInput" placeholder="Search 4D or Name...">
-            <input type="hidden" id="sickRecruitId">
-            <div class="combo-list" id="sickRecruitList"></div>
-          </div>
+    <div class="panel">
+      <h2 id="sickFormTitle">Log an Outcome</h2>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field-group combo" style="min-width:220px;">
+          <label>Recruit</label>
+          <input type="text" id="sickRecruitInput" placeholder="Type 4D or name..." autocomplete="off">
+          <input type="hidden" id="sickRecruitId">
+          <div class="combo-list" id="sickRecruitList"></div>
         </div>
-        <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Outcome</label>
+        <div class="field-group">
+          <label>Start Date</label>
+          <input type="date" id="sickStartDate">
+        </div>
+        <div class="field-group">
+          <label>End Date</label>
+          <input type="date" id="sickEndDate">
+        </div>
+        <div class="field-group">
+          <label>Status (What)</label>
           <select id="sickOutcome">
             <option value="UFD">UFD</option>
             <option value="LD">Light Duty</option>
             <option value="EXCUSE">Excuse</option>
-            <option value="PRESENT">Fit / RTU</option>
+            <option value="PRESENT">Fit / Return to Unit</option>
           </select>
         </div>
-      </div>
-
-      <div class="grid-2" style="margin-bottom: 12px;">
-        <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Start Date</label>
-          <input type="date" id="sickStartDate">
+        <div class="field-group" id="excuseTypeWrap" style="display:none; min-width:160px;">
+          <label>Excuse Type</label>
+          <select id="sickExcuseType">
+            <option value="UL">Upper Limb (UL)</option>
+            <option value="LL">Lower Limb (LL)</option>
+            <option value="UNIFORM">Uniform</option>
+            <option value="FLEGS">FLEGS</option>
+            <option value="OTHERS">Others</option>
+          </select>
         </div>
-        <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">End Date</label>
-          <input type="date" id="sickEndDate">
+        <div class="field-group" id="excuseOtherWrap" style="display:none; min-width:180px;">
+          <label>Specify Excuse</label>
+          <input type="text" id="sickExcuseOther" placeholder="Specify...">
         </div>
-      </div>
-
-      <div id="excuseTypeWrap" style="display:none; margin-bottom: 12px;">
-        <label style="font-size: 0.8rem; color: var(--text-muted);">Excuse Type</label>
-        <select id="sickExcuseType">
-          <option value="UL">Upper Limb (UL)</option>
-          <option value="LL">Lower Limb (LL)</option>
-          <option value="UNIFORM">Uniform</option>
-          <option value="FLEGS">FLEGS</option>
-          <option value="OTHERS">Others</option>
-        </select>
-      </div>
-      <div id="excuseOtherWrap" style="display:none; margin-bottom: 12px;">
-        <input type="text" id="sickExcuseOther" placeholder="Specify excuse details...">
-      </div>
-
-      <div class="grid-2" style="margin-bottom: 12px;">
-        <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Location</label>
+        <div class="field-group" style="min-width:180px;">
+          <label>Reason (Why)</label>
+          <input type="text" id="sickReason" placeholder="e.g. fever, sprained ankle">
+        </div>
+        <div class="field-group">
+          <label>Reported To (Where)</label>
           <select id="sickLocation">
             <option value="PTMC">PTMC</option>
-            <option value="HOSPITAL">Hospital / A&E</option>
+            <option value="HOSPITAL">Hospital / A&amp;E</option>
             <option value="POLYCLINIC">Polyclinic</option>
             <option value="OTHERS">Others</option>
           </select>
         </div>
-        <div id="locationOtherWrap" style="display:none;">
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Location Details</label>
-          <input type="text" id="sickLocationOther" placeholder="Specify location...">
+        <div class="field-group" id="locationOtherWrap" style="display:none; min-width:160px;">
+          <label>Specify Location</label>
+          <input type="text" id="sickLocationOther" placeholder="Specify...">
+        </div>
+        <div class="field-group" style="flex:1; min-width:180px;">
+          <label>Remarks (How / notes)</label>
+          <input type="text" id="sickRemarks" placeholder="follow-up, review date, etc">
+        </div>
+        <div class="field-group row" style="gap:8px;">
+          <button id="btnLogSick">Log Outcome</button>
+          <button class="ghost" id="btnCancelEdit" style="display:none;">Cancel</button>
         </div>
       </div>
-
-      <div style="margin-bottom: 12px;">
-        <label style="font-size: 0.8rem; color: var(--text-muted);">Reason / Diagnosis</label>
-        <input type="text" id="sickReason" placeholder="e.g. Fever, sprained ankle">
-      </div>
-
-      <div style="margin-bottom: 16px;">
-        <label style="font-size: 0.8rem; color: var(--text-muted);">Remarks</label>
-        <input type="text" id="sickRemarks" placeholder="Optional notes...">
-      </div>
-
-      <button id="btnLogSick" style="width: 100%;">Log Outcome</button>
+      <div class="footnote">Logging an outcome updates that recruit's Parade State status for every date in the range (End Date defaults to Start Date for a single day).</div>
     </div>
 
-    <div class="card">
-      <div class="card-title">
-        <div>
-          Report Sick Log
-          <span style="font-size: 0.8rem; color: var(--text-muted);" id="sickLogCount"></span>
-        </div>
-        <div class="row">
-          <input type="text" id="sickSearch" placeholder="Filter log..." style="width: 160px;">
-          <button class="ghost" id="btnExportExcel">Export Excel</button>
-        </div>
+    <div class="panel">
+      <h2>Report Sick Log <span class="sub" id="sickLogCount"></span>
+        <button class="ghost" id="btnExportExcel">Export to Excel</button>
+      </h2>
+      <div class="search-row row">
+        <input type="text" id="sickSearch" placeholder="Search by name or 4D...">
       </div>
-      <div id="sickLogWrap" style="overflow-x: auto;"></div>
+      <div class="table-scroll" id="sickLogWrap"></div>
     </div>
   </div>
 
-  <!-- VIEW: OOT TRACKER -->
+  <!-- OOT -->
   <div class="view" id="view-oot">
-    <div class="card">
-      <div class="card-title">Flag Recruit as OOT</div>
-      <div class="grid-2" style="margin-bottom: 12px;">
-        <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Recruit</label>
-          <div class="combo">
-            <input type="text" id="ootRecruitInput" placeholder="Search 4D or Name...">
-            <input type="hidden" id="ootRecruitId">
-            <div class="combo-list" id="ootRecruitList"></div>
-          </div>
-        </div>
-        <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Start Date</label>
-          <input type="date" id="ootStartDate">
-        </div>
-      </div>
-      <div class="grid-2" style="margin-bottom: 16px;">
-        <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Expected End Date (Optional)</label>
-          <input type="date" id="ootEndDate">
-        </div>
-        <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Notes</label>
-          <input type="text" id="ootNote" placeholder="e.g. Exceeded 30 days MC threshold">
-        </div>
-      </div>
-      <button id="btnMarkOot" style="width:100%;">Mark as OOT</button>
-    </div>
-
-    <div class="card">
-      <div class="card-title" style="color: var(--oot);">Candidates Exceeding Threshold (30+ Days)</div>
+    <div class="panel">
+      <h2>Pending OOT <span class="sub">Currently active UFD / Light Duty / Excuse of 30+ days, not yet marked OOT</span></h2>
       <div id="pendingOotList"></div>
     </div>
 
-    <div class="card">
-      <div class="card-title">
-        Currently Active OOT
-        <span style="font-size: 0.8rem; color: var(--text-muted);" id="ootCurrentCount"></span>
+    <div class="panel">
+      <h2>Mark Someone OOT</h2>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field-group combo" style="min-width:220px;">
+          <label>Recruit (search 4D or name)</label>
+          <input type="text" id="ootRecruitInput" placeholder="Type 4D or name..." autocomplete="off">
+          <input type="hidden" id="ootRecruitId">
+          <div class="combo-list" id="ootRecruitList"></div>
+        </div>
+        <div class="field-group">
+          <label>Start Date</label>
+          <input type="date" id="ootStartDate">
+        </div>
+        <div class="field-group">
+          <label>End Date <span style="text-transform:none;">(optional, leave blank if ongoing)</span></label>
+          <input type="date" id="ootEndDate">
+        </div>
+        <div class="field-group" style="flex:1; min-width:180px;">
+          <label>Note</label>
+          <input type="text" id="ootNote" placeholder="reason / context">
+        </div>
+        <div class="field-group">
+          <button id="btnMarkOot">Mark OOT</button>
+        </div>
       </div>
+    </div>
+
+    <div class="panel">
+      <h2>Current OOT <span class="sub" id="ootCurrentCount"></span></h2>
       <div id="ootCurrentList"></div>
     </div>
 
-    <div class="card">
-      <div class="card-title">OOT History</div>
+    <div class="panel">
+      <h2>OOT History <span class="sub">Closed / past OOT periods</span></h2>
       <div id="ootHistoryList"></div>
     </div>
   </div>
 
-  <!-- VIEW: CALENDAR -->
+  <!-- CALENDAR -->
   <div class="view" id="view-calendar">
-    <div class="card">
-      <div class="card-title">
-        <button class="ghost small" id="btnPrevMonth">&lt;</button>
-        <span id="calMonthLabel"></span>
-        <button class="ghost small" id="btnNextMonth">&gt;</button>
+    <div class="panel">
+      <div class="cal-nav">
+        <button class="ghost small" id="btnPrevMonth">&larr; Prev</button>
+        <div class="cal-month-label" id="calMonthLabel"></div>
+        <button class="ghost small" id="btnNextMonth">Next &rarr;</button>
       </div>
       <div class="cal-grid" id="calendarGrid"></div>
     </div>
-
-    <div class="card">
-      <div class="card-title">
-        Entries for Date
-        <span style="font-size: 0.8rem; color: var(--text-muted);" id="calendarDayLabel"></span>
-      </div>
-      <div id="calendarDayList"></div>
+    <div class="panel">
+      <h2>Report Sick — <span id="calendarDayLabel"></span></h2>
+      <div id="calendarDayList"><div class="empty">Click a date to see who reported sick.</div></div>
     </div>
   </div>
 
-  <!-- VIEW: RECRUIT HISTORY -->
+  <!-- HISTORY -->
   <div class="view" id="view-history">
-    <div class="card">
-      <div class="card-title">Individual Recruit Lookup</div>
-      <input type="text" id="historySearch" placeholder="Search recruit name or 4D..." style="margin-bottom: 12px;">
+    <div class="panel">
+      <h2>Search Recruit</h2>
+      <div class="search-row row">
+        <input type="text" id="historySearch" placeholder="Search by name or 4D e.g. 1101...">
+      </div>
       <div id="historyResults"></div>
     </div>
 
-    <div class="card" id="historyDetail" style="display:none;">
-      <div class="card-title" id="historyName"></div>
-      <div class="strength-row" id="historyCounts" style="margin-bottom: 16px;"></div>
-      
-      <h4 style="color: var(--text-heading); margin-bottom: 8px;">Report Sick History</h4>
-      <div id="historyRSLog" style="margin-bottom: 20px;"></div>
+    <div class="panel" id="historyDetail" style="display:none;">
+      <h2 id="historyName"></h2>
+      <div class="hist-counts" id="historyCounts"></div>
 
-      <h4 style="color: var(--text-heading); margin-bottom: 8px;">Status Change Audit</h4>
-      <div id="historyStatusLog"></div>
+      <div class="hist-block">
+        <h3>Report Sick History</h3>
+        <div id="historyRSLog"></div>
+      </div>
+
+      <div class="hist-block">
+        <h3>Status Change Log</h3>
+        <div id="historyStatusLog"></div>
+      </div>
     </div>
   </div>
 
-  <!-- VIEW: ROSTER -->
+  <!-- ROSTER -->
   <div class="view" id="view-roster">
-    <div class="card">
-      <div class="card-title">Add Single Recruit</div>
-      <div class="grid-2" style="margin-bottom: 12px;">
-        <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">4D (e.g. 1204)</label>
-          <input type="text" id="newRecruitFourD" placeholder="1204">
-          <div style="font-size: 0.75rem; color: var(--khaki); margin-top: 4px;" id="newRecruitSectionPreview">Unassigned</div>
+    <div class="panel">
+      <h2>Add Recruit</h2>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field-group">
+          <label>4D (e.g. 1101 = Plt1/Sec1/Bed01)</label>
+          <input type="text" id="newRecruitFourD" placeholder="1101" maxlength="4" style="width:110px;">
         </div>
-        <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Full Name</label>
-          <input type="text" id="newRecruitName" placeholder="REC John Doe">
+        <div class="field-group">
+          <label>Name</label>
+          <input type="text" id="newRecruitName" placeholder="Recruit name">
+        </div>
+        <div class="field-group">
+          <label>Section</label>
+          <div id="newRecruitSectionPreview" style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--khaki); padding:8px 0;">Unassigned</div>
+        </div>
+        <div class="field-group">
+          <button id="btnAddRecruit">Add</button>
         </div>
       </div>
-      <button id="btnAddRecruit">Add to Roster</button>
     </div>
 
-    <div class="card">
-      <div class="card-title">Bulk Add Recruits</div>
-      <textarea id="bulkNames" rows="4" placeholder="Paste lines:&#10;1201 REC John Doe&#10;1202 REC Jane Smith" style="margin-bottom: 12px;"></textarea>
-      <button id="btnBulkAdd">Bulk Add</button>
-    </div>
-
-    <div class="card">
-      <div class="card-title">
-        Current Roster
-        <span style="font-size: 0.8rem; color: var(--text-muted);" id="rosterCount"></span>
+    <div class="panel">
+      <h2>Bulk Add <span class="sub">One recruit per line: 4D&nbsp;&nbsp;Name — e.g. "1111&nbsp;&nbsp;SENTHILKUMAR SHIVA". Platoon/Section is auto-detected from the 4D code, so paste all platoons together — blank lines and uneven spacing/tabs are fine.</span></h2>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field-group" style="flex:1;">
+          <label>4D&nbsp;&nbsp;Name</label>
+          <textarea id="bulkNames" style="min-height:160px;" placeholder="1111&#9;SENTHILKUMAR SHIVA"></textarea>
+        </div>
+        <div class="field-group">
+          <button id="btnBulkAdd">Add All</button>
+        </div>
       </div>
+    </div>
+
+    <div class="panel">
+      <h2>Current Roster <span class="sub" id="rosterCount"></span></h2>
       <div id="rosterWrap"></div>
     </div>
   </div>
+
 </div>
 
-<div id="toast"></div>
+<div class="toast" id="toast"></div>
 
 <script>
 (function(){
@@ -622,38 +534,13 @@
     toast._h = setTimeout(()=>t.classList.remove('show'), 1800);
   }
 
-  // Replace this URL with your newly deployed Google Apps Script Web App URL
-  const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbw-2Ta7_ZzL1amgtI_QZp17-NgIA9MT4zKI3gGbLzN4Wz1fdK3-OJcEq31RExoy8dOQ/exec";
-  
-  async function getKey(key) {
-    try {
-      const response = await fetch(`${GOOGLE_SHEET_API_URL}?action=get&key=${encodeURIComponent(key)}`);
-      const data = await response.json();
-      return Object.keys(data).length > 0 ? JSON.stringify(data) : null;
-    } catch (e) {
-      console.error('Fetch error:', e);
-      return null;
-    }
+  async function getKey(key){
+    try{ const res = await window.storage.get(key, true); return res ? res.value : null; }
+    catch(e){ return null; }
   }
-
-  async function setKey(key, value) {
-    try {
-      const parsedData = JSON.parse(value);
-      await fetch(GOOGLE_SHEET_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'set',
-          key: key,
-          data: parsedData
-        })
-      });
-      return true;
-    } catch (e) {
-      console.error('Save error:', e);
-      toast('Save failed — check connection');
-      return false;
-    }
+  async function setKey(key, value){
+    try{ await window.storage.set(key, value, true); return true; }
+    catch(e){ console.error('storage set failed', key, e); toast('Save failed — check connection'); return false; }
   }
 
   async function loadRoster(){ const v = await getKey('roster'); roster = v ? JSON.parse(v) : []; }
@@ -691,25 +578,12 @@
       const st = entry && entry.status ? entry.status : 'PRESENT';
       counts[st] = (counts[st]||0) + 1;
     });
-
     const today = todayStr();
-    const activeOotCount = ootLog.filter(o=> !o.endDate || o.endDate >= today).length;
-
+    const ootCount = ootLog.filter(o=> !o.endDate || o.endDate >= today).length;
     const wrap = document.getElementById('strengthRow');
-    const chips = [
-      ['TOTAL', roster.length, ''],
-      ['PRESENT', counts.PRESENT, 'PRESENT'],
-      ['RSO', counts.RSO, 'RSO'],
-      ['UFD', counts.UFD, 'UFD'],
-      ['LIGHT DUTY', counts.LD, 'LD'],
-      ['EXCUSE', counts.EXCUSE, 'EXCUSE'],
-      ['OOT', activeOotCount, 'OOT']
-    ];
+    const chips = [['TOTAL', roster.length, '']].concat(STATUSES.map(s=>[STATUS_LABEL[s].toUpperCase(), counts[s], s])).concat([['OOT', ootCount, 'OOT']]);
     wrap.innerHTML = chips.map(([label, n, key])=>{
-      let color = 'var(--khaki)';
-      if(key === 'OOT') color = 'var(--oot)';
-      else if(key) color = `var(--${key.toLowerCase()})`;
-
+      const color = key ? `var(--${key.toLowerCase()})` : 'var(--khaki)';
       return `<div class="strength-chip"><div class="n" style="color:${color}">${n}</div><div class="l">${label}</div></div>`;
     }).join('');
   }
@@ -726,7 +600,7 @@
       members.forEach(r=>{
         const entry = paradeToday[r.id] || {status:'PRESENT', remarks:''};
         html += `<tr data-id="${r.id}">
-          <td class="name-cell">${r.fourD?`<span class="fourd-tag">${escapeHtml(r.fourD)}</span>`:''} ${escapeHtml(r.name)}</td>
+          <td class="name-cell">${r.fourD?`<span class="fourd-tag">${escapeHtml(r.fourD)}</span>`:''}${escapeHtml(r.name)}</td>
           <td>
             <select class="status-select" data-id="${r.id}">
               ${STATUSES.map(s=>`<option value="${s}" ${entry.status===s?'selected':''}>${STATUS_LABEL[s]}</option>`).join('')}
@@ -894,10 +768,10 @@
     sickLog.forEach(e=>{
       if(!['UFD','LD','EXCUSE'].includes(e.outcome)) return;
       const end = e.endDate || e.startDate;
-      if(e.startDate > today || end < today) return;
+      if(e.startDate > today || end < today) return; // not currently active
       const days = daysBetween(e.startDate, today) + 1;
       if(days < OOT_THRESHOLD_DAYS) return;
-      if(activeOotEntry(e.recruitId)) return;
+      if(activeOotEntry(e.recruitId)) return; // already marked OOT
       candidates.push({entry:e, days});
     });
     candidates.sort((a,b)=> b.days - a.days);
@@ -946,19 +820,14 @@
     wrap.querySelectorAll('.close-oot').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
         const o = ootLog.find(x=>x.id===btn.dataset.id);
-        if(o){
-          o.endDate = todayStr();
-          await saveOotLog();
-          renderOotCurrent(); renderOotHistory(); renderPendingOot(); renderStrength();
-          toast('OOT closed');
-        }
+        if(o){ o.endDate = todayStr(); await saveOotLog(); renderOotCurrent(); renderOotHistory(); renderPendingOot(); toast('OOT closed'); }
       });
     });
     wrap.querySelectorAll('.del-oot').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
         ootLog = ootLog.filter(x=>x.id!==btn.dataset.id);
         await saveOotLog();
-        renderOotCurrent(); renderOotHistory(); renderPendingOot(); renderStrength();
+        renderOotCurrent(); renderOotHistory(); renderPendingOot();
         toast('OOT entry removed');
       });
     });
@@ -1007,7 +876,6 @@
     document.getElementById('ootEndDate').value='';
     document.getElementById('ootNote').value='';
     renderOotTab();
-    renderStrength();
     toast('Marked OOT');
   }
 
@@ -1380,8 +1248,6 @@
     document.getElementById('sickEndDate').value = dToday;
     document.getElementById('ootStartDate').value = dToday;
 
-    toast('Syncing with Google Sheets...');
-
     await loadRoster();
     await loadSickLog();
     await loadStatusHistory();
@@ -1398,8 +1264,6 @@
     renderRoster();
     renderCalendar();
     renderOotTab();
-
-    toast('Data loaded successfully');
 
     document.getElementById('paradeDate').addEventListener('change', (e)=> switchParadeDate(e.target.value || todayStr()));
     document.getElementById('pendingDate').addEventListener('change', (e)=>{ currentSickDate = e.target.value || todayStr(); renderPending(); });
@@ -1505,5 +1369,3 @@
   init();
 })();
 </script>
-</body>
-</html>
